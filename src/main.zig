@@ -1,19 +1,20 @@
 const std = @import("std");
 
 pub fn main() !void {
-    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    // const allocator = gpa.allocator();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
 
-    const address = try std.net.Address.parseIp4("127.0.0.1", 8080);
-    var server = try std.net.Server.init(.{ .reuse_address = true });
+    const address = try std.net.Address.parseIp4("127.0.0.1", 3000);
+    const stream = std.net.Stream{ .handle = std.posix.STDOUT_FILENO };
+    const server = try allocator.create(std.net.Server);
+    server.* = .{ .listen_address = address, .stream = stream };
     defer server.deinit();
 
-    try server.listen(address);
-    std.debug.print("Shadowfax Proxy running on {s}:{}\n", .{ address.ip4, address.port });
+    std.debug.print("Shadowfax Proxy running on {?}\n", .{address.in}});
 
     while (true) {
-        var conn = try server.accept();
-        std.debug.print("New connection from {s}\n", .{conn.address});
+        const conn = try server.accept();
+        std.debug.print("New connection from {?}\n", .{conn.address});
         handleRequest(conn) catch |err| {
             std.debug.print("Request error: {}\n", .{err});
         };
