@@ -4,13 +4,16 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    const address = try std.net.Address.parseIp4("127.0.0.1", 3000);
-    const stream = std.net.Stream{ .handle = std.posix.STDOUT_FILENO };
+    const host = [4]u8{ 127, 0, 0, 1 };
+    const port = 3490;
+    const address = std.net.Address.initIp4(host, port);
+    const socket = try std.posix.socket(address.any.family, std.posix.SOCK.STREAM, std.posix.IPPROTO.TCP);
+    const stream = std.net.Stream{ .handle = socket };
     const server = try allocator.create(std.net.Server);
     server.* = .{ .listen_address = address, .stream = stream };
     defer server.deinit();
 
-    std.debug.print("Shadowfax Proxy running on {?}\n", .{address.in}});
+    std.debug.print("Shadowfax Proxy running on {?}\n", .{address.in});
 
     while (true) {
         const conn = try server.accept();

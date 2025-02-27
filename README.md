@@ -1,5 +1,7 @@
 # Shadowfax
 
+Initial part following: https://pedropark99.github.io/zig-book/Chapters/04-http-server.html
+
 ## Project roadmap
 
 This roadmap breaks down the project into four key milestones, from basic request handling to a full-fledged proxy system.
