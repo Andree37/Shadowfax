@@ -1,38 +1,20 @@
 const std = @import("std");
+const SocketConf = @import("config.zig");
+const Request = @import("request.zig");
+const stdout = std.io.getStdOut().writer();
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
+    const socket = try SocketConf.Socket.init();
+    try stdout.print("Server Addr: {any}\n", .{socket._address});
 
-    const host = [4]u8{ 127, 0, 0, 1 };
-    const port = 3490;
-    const address = std.net.Address.initIp4(host, port);
-    const socket = try std.posix.socket(address.any.family, std.posix.SOCK.STREAM, std.posix.IPPROTO.TCP);
-    const stream = std.net.Stream{ .handle = socket };
-    const server = try allocator.create(std.net.Server);
-    server.* = .{ .listen_address = address, .stream = stream };
-    defer server.deinit();
-
-    std.debug.print("Shadowfax Proxy running on {?}\n", .{address.in});
-
-    while (true) {
-        const conn = try server.accept();
-        std.debug.print("New connection from {?}\n", .{conn.address});
-        handleRequest(conn) catch |err| {
-            std.debug.print("Request error: {}\n", .{err});
-        };
-        conn.stream.close();
+    var server = try socket._address.listen(.{});
+    const connection = try server.accept();
+    var buffer: [1000]u8 = undefined;
+    for (0..buffer.len) |i| {
+        buffer[i] = 0;
     }
-}
 
-fn handleRequest(conn: std.net.Server.Connection) !void {
-    var buf: [1024]u8 = undefined;
-    const bytes_read = try conn.stream.read(&buf);
-    const request = buf[0..bytes_read];
+    _ = try Request.read_request(connection, buffer[0..buffer.len]);
 
-    if (std.mem.startsWith(u8, request, "GET ")) {
-        try conn.stream.writeAll("HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, Shadowfax!");
-    } else {
-        try conn.stream.writeAll("HTTP/1.1 400 Bad Request\r\n\r\n");
-    }
+    try stdout.print("{s}\n", .{buffer});
 }
