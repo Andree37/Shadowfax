@@ -4,7 +4,7 @@ import Config
 # you can enable the server option below.
 config :hello_sockets, HelloSocketsWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "yxHKzQ0tleTp1wzN772AATCQc6V4hJ4n6mr9yUi3v6xDc2lPicH8XJXaOq/UyVg4",
+  secret_key_base: "ma2oaU80huOMXJyAiNLR6oDCwsO89TUnC4gJj7bLyMObVkw+XxaS+B3LHffy4wll",
   server: false
 
 # In test we don't send emails
@@ -18,7 +18,3 @@ config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
-
-# Enable helpful, but potentially expensive runtime checks
-config :phoenix_live_view,
-  enable_expensive_runtime_checks: true

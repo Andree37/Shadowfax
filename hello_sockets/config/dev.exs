@@ -13,11 +13,8 @@ config :hello_sockets, HelloSocketsWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "mLqcgwl0nHtuONLHba1K2vQatGt8+MpuG2Wx4TKFEf1HIsZM5d5f+ShJ1sgMDcer",
-  watchers: [
-    esbuild: {Esbuild, :install_and_run, [:hello_sockets, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:hello_sockets, ~w(--watch)]}
-  ]
+  secret_key_base: "W0HmL88pdI0zPOIwEGnqdkKd1G0sZ6TMw1hBciCDdvBF6RQU0jQE7N6EjkwZvUAj",
+  watchers: []
 
 # ## SSL Support
 #
@@ -42,17 +39,6 @@ config :hello_sockets, HelloSocketsWeb.Endpoint,
 # configured to run both http and https servers on
 # different ports.
 
-# Watch static and templates for browser reloading.
-config :hello_sockets, HelloSocketsWeb.Endpoint,
-  live_reload: [
-    web_console_logger: true,
-    patterns: [
-      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"priv/gettext/.*(po)$",
-      ~r"lib/hello_sockets_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
-    ]
-  ]
-
 # Enable dev routes for dashboard and mailbox
 config :hello_sockets, dev_routes: true
 
@@ -65,14 +51,6 @@ config :phoenix, :stacktrace_depth, 20
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
-
-config :phoenix_live_view,
-  # Include debug annotations and locations in rendered markup.
-  # Changing this configuration will require mix clean and a full recompile.
-  debug_heex_annotations: true,
-  debug_attributes: true,
-  # Enable helpful, but potentially expensive runtime checks
-  enable_expensive_runtime_checks: true
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
