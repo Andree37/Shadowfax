@@ -1,0 +1,89 @@
+# The directory Mix will write compiled artifacts to.
+/_build/
+
+# If you run "mix test --cover", coverage assets end up here.
+/cover/
+
+# The directory Mix downloads your dependencies sources to.
+/deps/
+
+# Where third-party dependencies like ExDoc output generated docs.
+/doc/
+
+# Ignore .fetch files in case you like to edit your project deps locally.
+/.fetch
+
+# If the VM crashes, it generates a dump, let's ignore it too.
+erl_crash.dump
+
+# Also ignore archive artifacts (built via "mix archive.build").
+*.ez
+
+# Ignore package tarball (built via "mix hex.build").
+shadowfax-*.tar
+
+# Temporary files, for example, from tests.
+/tmp/
+
+# Phoenix specific ignores
+# Static artifacts
+/priv/static/assets/
+
+# Database
+*.sqlite
+*.sqlite-*
+
+# Phoenix LiveDashboard local data
+/priv/repo/migrations/_*.exs
+
+# Secrets and environment files
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Elixir Language Server
+/.elixir_ls/
+
+# Dialyzer
+/priv/plts/
+
+# NPM dependencies (if using assets compilation)
+/assets/node_modules/
+
+# Webpack build artifacts (Phoenix 1.6+)
+/priv/static/assets/
+
+# Log files
+*.log
+
+# Local configuration override
+/config/*.secret.exs
+
+# Test coverage reports
+/coverage/
+
+# Benchmarking
+/benchmarks/
+
+# Development database
+/dev.db
+/dev.db-*
+
+# Production secrets
+/config/prod.secret.exs
