@@ -5,7 +5,7 @@ defmodule ShadowfaxWeb.ChatChannel do
   alias Shadowfax.Accounts
 
   @impl true
-  def join("chat:" <> channel_id, payload, socket) do
+  def join("chat:" <> channel_id, _payload, socket) do
     channel_id = String.to_integer(channel_id)
     user_id = socket.assigns.current_user_id
 
@@ -15,6 +15,25 @@ defmodule ShadowfaxWeb.ChatChannel do
     else
       {:error, %{reason: "unauthorized"}}
     end
+  end
+
+  # Handle broadcasted events
+  @impl true
+  def handle_info({:new_message, message}, socket) do
+    push(socket, "new_message", %{message: serialize_message(message)})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:message_updated, message}, socket) do
+    push(socket, "message_updated", %{message: serialize_message(message)})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:message_deleted, message}, socket) do
+    push(socket, "message_deleted", %{message: serialize_message(message)})
+    {:noreply, socket}
   end
 
   @impl true
@@ -169,25 +188,6 @@ defmodule ShadowfaxWeb.ChatChannel do
       Ecto.NoResultsError ->
         {:reply, {:error, %{reason: "message_not_found"}}, socket}
     end
-  end
-
-  # Handle broadcasted events
-  @impl true
-  def handle_info({:new_message, message}, socket) do
-    push(socket, "new_message", %{message: serialize_message(message)})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:message_updated, message}, socket) do
-    push(socket, "message_updated", %{message: serialize_message(message)})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:message_deleted, message}, socket) do
-    push(socket, "message_deleted", %{message: serialize_message(message)})
-    {:noreply, socket}
   end
 
   @impl true

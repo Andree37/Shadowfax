@@ -6,7 +6,6 @@ defmodule Shadowfax.Chat do
   import Ecto.Query, warn: false
   alias Shadowfax.Repo
 
-  alias Shadowfax.Accounts.User
   alias Shadowfax.Chat.{Channel, ChannelMembership, DirectConversation, Message}
 
   ## Channels
@@ -554,8 +553,7 @@ defmodule Shadowfax.Chat do
 
   """
   def create_system_message(attrs \\ %{}) do
-    %Message{}
-    |> Message.system_message_changeset(attrs)
+    Message.system_message_changeset(attrs)
     |> Repo.insert()
   end
 

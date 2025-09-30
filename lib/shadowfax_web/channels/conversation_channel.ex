@@ -5,7 +5,7 @@ defmodule ShadowfaxWeb.ConversationChannel do
   alias Shadowfax.Accounts
 
   @impl true
-  def join("conversation:" <> conversation_id, payload, socket) do
+  def join("conversation:" <> conversation_id, _payload, socket) do
     conversation_id = String.to_integer(conversation_id)
     user_id = socket.assigns.current_user_id
 
@@ -15,6 +15,25 @@ defmodule ShadowfaxWeb.ConversationChannel do
     else
       {:error, %{reason: "unauthorized"}}
     end
+  end
+
+  # Handle broadcasted events
+  @impl true
+  def handle_info({:new_message, message}, socket) do
+    push(socket, "new_message", %{message: serialize_message(message)})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:message_updated, message}, socket) do
+    push(socket, "message_updated", %{message: serialize_message(message)})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:message_deleted, message}, socket) do
+    push(socket, "message_deleted", %{message: serialize_message(message)})
+    {:noreply, socket}
   end
 
   @impl true
@@ -28,11 +47,6 @@ defmodule ShadowfaxWeb.ConversationChannel do
     # Get recent messages
     messages = Chat.list_direct_messages(conversation_id, limit: 50)
     push(socket, "messages_loaded", %{messages: serialize_messages(messages)})
-
-    # Get conversation info
-    conversation = Chat.get_direct_conversation!(conversation_id)
-    other_user_id = Shadowfax.Chat.DirectConversation.other_user(conversation, user_id)
-    other_user = Accounts.get_user!(other_user_id)
 
     # Broadcast user joined to the other user only
     broadcast_from!(socket, "user_joined", %{
@@ -133,9 +147,6 @@ defmodule ShadowfaxWeb.ConversationChannel do
 
   @impl true
   def handle_in("mark_as_read", _payload, socket) do
-    conversation_id = socket.assigns.conversation_id
-    user_id = socket.assigns.current_user_id
-
     # For direct conversations, we don't have a membership table
     # We could create a separate read receipts table or handle this differently
     # For now, we'll just acknowledge the request
@@ -189,25 +200,6 @@ defmodule ShadowfaxWeb.ConversationChannel do
       Ecto.NoResultsError ->
         {:reply, {:error, %{reason: "conversation_not_found"}}, socket}
     end
-  end
-
-  # Handle broadcasted events
-  @impl true
-  def handle_info({:new_message, message}, socket) do
-    push(socket, "new_message", %{message: serialize_message(message)})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:message_updated, message}, socket) do
-    push(socket, "message_updated", %{message: serialize_message(message)})
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:message_deleted, message}, socket) do
-    push(socket, "message_deleted", %{message: serialize_message(message)})
-    {:noreply, socket}
   end
 
   @impl true
