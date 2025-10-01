@@ -22,9 +22,12 @@ config :shadowfax, ShadowfaxWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
-  debug_errors: true,
+  debug_errors: false,
   secret_key_base: "Z7xwZLtYqM9IrCiAghpX114gInVw8kZy63SodPE8ukpTsosOs7+Tcm7DTgUdNvRE",
-  watchers: []
+  watchers: [],
+  live_reload: [
+    patterns: []
+  ]
 
 # ## SSL Support
 #
