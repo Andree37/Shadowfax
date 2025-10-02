@@ -352,21 +352,24 @@ end)
 system_messages = [
   %{
     content: "Diana created this channel",
+    user_id: diana.id,
     channel_id: private_team.id,
     message_type: "system",
-    metadata: %{action: "channel_created", user_id: diana.id}
+    metadata: %{action: "channel_created"}
   },
   %{
     content: "Alice joined the channel",
+    user_id: alice.id,
     channel_id: private_team.id,
     message_type: "system",
-    metadata: %{action: "user_joined", user_id: alice.id}
+    metadata: %{action: "user_joined"}
   },
   %{
     content: "Bob joined the channel",
+    user_id: bob.id,
     channel_id: private_team.id,
     message_type: "system",
-    metadata: %{action: "user_joined", user_id: bob.id}
+    metadata: %{action: "user_joined"}
   }
 ]
 
