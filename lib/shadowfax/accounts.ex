@@ -133,7 +133,8 @@ defmodule Shadowfax.Accounts do
 
   """
   def update_user_status(%User{} = user, attrs) do
-    attrs = Map.put(attrs, :last_seen_at, NaiveDateTime.utc_now())
+    attrs =
+      Map.put(attrs, :last_seen_at, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second))
 
     user
     |> User.status_changeset(attrs)

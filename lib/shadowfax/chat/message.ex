@@ -74,7 +74,7 @@ defmodule Shadowfax.Chat.Message do
     |> cast(attrs, [:content])
     |> validate_required([:content])
     |> validate_content()
-    |> put_change(:edited_at, NaiveDateTime.utc_now())
+    |> put_change(:edited_at, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second))
   end
 
   @doc """

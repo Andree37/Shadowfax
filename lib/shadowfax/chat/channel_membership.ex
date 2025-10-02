@@ -64,8 +64,15 @@ defmodule Shadowfax.Chat.ChannelMembership do
 
   defp put_joined_at(changeset) do
     case get_field(changeset, :joined_at) do
-      nil -> put_change(changeset, :joined_at, NaiveDateTime.utc_now())
-      _ -> changeset
+      nil ->
+        put_change(
+          changeset,
+          :joined_at,
+          NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        )
+
+      _ ->
+        changeset
     end
   end
 
@@ -145,7 +152,7 @@ defmodule Shadowfax.Chat.ChannelMembership do
   """
   def mark_as_read(membership) do
     membership
-    |> change(%{last_read_at: NaiveDateTime.utc_now()})
+    |> change(%{last_read_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)})
     |> Shadowfax.Repo.update()
   end
 
