@@ -173,28 +173,8 @@ defmodule ShadowfaxWeb.UserController do
   # Private functions
 
   defp get_current_user(conn) do
-    case get_req_header(conn, "authorization") do
-      ["Bearer " <> token] ->
-        case verify_token(token) do
-          {:ok, user_id} ->
-            try do
-              {:ok, Accounts.get_user!(user_id)}
-            rescue
-              Ecto.NoResultsError -> {:error, :unauthorized}
-            end
-
-          {:error, _reason} ->
-            {:error, :unauthorized}
-        end
-
-      _ ->
-        {:error, :unauthorized}
-    end
-  end
-
-  defp verify_token(token) do
-    # max_age: 1209600 is equivalent to two weeks in seconds
-    Phoenix.Token.verify(ShadowfaxWeb.Endpoint, "user auth", token, max_age: 1_209_600)
+    # The authentication plug ensures current_user is always present
+    {:ok, conn.assigns.current_user}
   end
 
   defp can_update_user?(%User{id: user_id}, target_id) do

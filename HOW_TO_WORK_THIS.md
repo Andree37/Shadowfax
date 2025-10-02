@@ -329,9 +329,11 @@ end)
 
 ---
 
-## Testing Authentication
+## Testing Authentication & Using Authenticated Users
 
-Since your users were created with hashed passwords, you can test authentication:
+### Console Authentication (IEx)
+
+Since your users were created with hashed passwords, you can test authentication in the console:
 
 ```elixir
 # Try to authenticate Alice
@@ -342,6 +344,173 @@ user = Shadowfax.Accounts.get_user_by_email_and_password(
 
 # If successful, user will be the User struct
 # If failed, user will be nil
+```
+
+### HTTP API Authentication
+
+**All API routes except `/api/auth/register` and `/api/auth/login` require authentication.**
+
+#### 1. Register a New User
+
+```bash
+curl -X POST http://localhost:4000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user": {
+      "username": "newuser",
+      "email": "newuser@example.com",
+      "password": "SecurePassword123!",
+      "first_name": "New",
+      "last_name": "User"
+    }
+  }'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "user": { "id": 5, "username": "newuser", ... },
+    "token": "SFMyNTY.g3QAAAACZAAEZGF0YW0AAAAEAQIDBGQABnNpZ25lZG4GALi-YZaDAQ.YourTokenHere"
+  }
+}
+```
+
+#### 2. Login (Get Token)
+
+```bash
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "alice@example.com",
+    "password": "Password123!"
+  }'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "user": { "id": 1, "username": "alice", ... },
+    "token": "SFMyNTY.g3QAAAACZAAEZGF0YW0AAAAEAQIDBGQABnNpZ25lZG4GALi-YZaDAQ.YourTokenHere"
+  }
+}
+```
+
+**⚠️ Important: Save this token! You'll need it for all authenticated requests.**
+
+#### 3. Use Token for Authenticated Requests
+
+All protected endpoints require the `Authorization` header with format: `Bearer <token>`
+
+**Example: Send a Channel Message**
+
+```bash
+curl -X POST http://localhost:4000/api/channels/1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SFMyNTY.g3QAAAACZAAEZGF0YW0AAAAEAQIDBGQABnNpZ25lZG4GALi-YZaDAQ.YourTokenHere" \
+  -d '{
+    "message": {
+      "content": "Hello from the API!"
+    }
+  }'
+```
+
+**Example: Get My User Info**
+
+```bash
+curl -X GET http://localhost:4000/api/auth/me \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+**Example: List My Conversations**
+
+```bash
+curl -X GET http://localhost:4000/api/conversations \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+**Example: Update My Status**
+
+```bash
+curl -X PUT http://localhost:4000/api/users/status \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{
+    "status": "away",
+    "is_online": true
+  }'
+```
+
+#### 4. WebSocket Authentication
+
+To connect to WebSocket channels, you need to authenticate:
+
+```javascript
+// In your frontend JavaScript
+const socket = new Phoenix.Socket("/socket", {
+  params: { token: "YOUR_TOKEN_HERE" }
+})
+
+socket.connect()
+
+// Join a channel
+const channel = socket.channel("chat:1", {})
+channel.join()
+  .receive("ok", resp => { console.log("Joined successfully", resp) })
+  .receive("error", resp => { console.log("Unable to join", resp) })
+
+// Send a message
+channel.push("new_message", { content: "Hello!" })
+```
+
+#### 5. Token Expiration
+
+- Tokens are valid for **2 weeks (1,209,600 seconds)**
+- After expiration, you'll receive a `401 Unauthorized` response
+- Simply login again to get a new token
+
+### Security Notes
+
+✅ **User ID is always enforced from the token** - you cannot spoof messages as another user
+✅ **All routes except register/login require authentication**
+✅ **WebSocket connections verify token on connect**
+✅ **Message `user_id` is set server-side from authenticated user**
+
+### Quick Testing Script
+
+Save this as `test_api.sh`:
+
+```bash
+#!/bin/bash
+
+# Login and get token
+RESPONSE=$(curl -s -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "alice@example.com", "password": "Password123!"}')
+
+TOKEN=$(echo $RESPONSE | jq -r '.data.token')
+
+echo "Token: $TOKEN"
+echo ""
+
+# Send a message
+echo "Sending message..."
+curl -X POST http://localhost:4000/api/channels/1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"message": {"content": "Hello from authenticated API!"}}'
+
+echo ""
+echo "Done!"
+```
+
+Make it executable and run:
+```bash
+chmod +x test_api.sh
+./test_api.sh
 ```
 
 ---

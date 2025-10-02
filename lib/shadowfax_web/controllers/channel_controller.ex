@@ -2,7 +2,6 @@ defmodule ShadowfaxWeb.ChannelController do
   use ShadowfaxWeb, :controller
 
   alias Shadowfax.Chat
-  alias Shadowfax.Accounts
   alias Shadowfax.Chat.Channel
   alias Shadowfax.Accounts.User
 
@@ -10,35 +9,22 @@ defmodule ShadowfaxWeb.ChannelController do
   List channels - public channels for all users, user's joined channels if authenticated
   """
   def index(conn, params) do
-    case get_current_user(conn) do
-      {:ok, user} ->
-        channels =
-          case params do
-            %{"type" => "joined"} -> Chat.list_user_channels(user.id)
-            %{"type" => "public"} -> Chat.list_public_channels()
-            _ -> Chat.list_user_channels(user.id) ++ Chat.list_public_channels()
-          end
+    {:ok, user} = get_current_user(conn)
 
-        conn
-        |> json(%{
-          success: true,
-          data: %{
-            channels: Enum.map(channels, &serialize_channel/1)
-          }
-        })
+    channels =
+      case params do
+        %{"type" => "joined"} -> Chat.list_user_channels(user.id)
+        %{"type" => "public"} -> Chat.list_public_channels()
+        _ -> Chat.list_user_channels(user.id) ++ Chat.list_public_channels()
+      end
 
-      {:error, :unauthorized} ->
-        # Return public channels only for unauthenticated users
-        channels = Chat.list_public_channels()
-
-        conn
-        |> json(%{
-          success: true,
-          data: %{
-            channels: Enum.map(channels, &serialize_channel/1)
-          }
-        })
-    end
+    conn
+    |> json(%{
+      success: true,
+      data: %{
+        channels: Enum.map(channels, &serialize_channel/1)
+      }
+    })
   end
 
   @doc """
@@ -453,27 +439,8 @@ defmodule ShadowfaxWeb.ChannelController do
   # Private functions
 
   defp get_current_user(conn) do
-    case get_req_header(conn, "authorization") do
-      ["Bearer " <> token] ->
-        case verify_token(token) do
-          {:ok, user_id} ->
-            try do
-              {:ok, Accounts.get_user!(user_id)}
-            rescue
-              Ecto.NoResultsError -> {:error, :unauthorized}
-            end
-
-          {:error, _reason} ->
-            {:error, :unauthorized}
-        end
-
-      _ ->
-        {:error, :unauthorized}
-    end
-  end
-
-  defp verify_token(token) do
-    Phoenix.Token.verify(ShadowfaxWeb.Endpoint, "user auth", token, max_age: 1_209_600)
+    # The authentication plug ensures current_user is always present
+    {:ok, conn.assigns.current_user}
   end
 
   defp can_access_channel?(%Channel{is_private: false}, _user_id), do: true

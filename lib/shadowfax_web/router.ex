@@ -5,12 +5,22 @@ defmodule ShadowfaxWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :authenticated do
+    plug ShadowfaxWeb.Plugs.Authenticate
+  end
+
   scope "/api", ShadowfaxWeb do
     pipe_through :api
 
-    # Auth routes
+    # Public auth routes (no authentication required)
     post "/auth/register", AuthController, :register
     post "/auth/login", AuthController, :login
+  end
+
+  scope "/api", ShadowfaxWeb do
+    pipe_through [:api, :authenticated]
+
+    # Protected auth routes
     delete "/auth/logout", AuthController, :logout
     get "/auth/me", AuthController, :me
     get "/auth/verify", AuthController, :verify_token
