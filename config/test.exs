@@ -36,3 +36,9 @@ config :phoenix, :plug_init_mode, :runtime
 config :shadowfax,
   token_salt: "test_user_auth_token_salt",
   token_version: 1
+
+# CORS configuration for testing
+# Allow all origins in test environment
+config :shadowfax, :cors,
+  origins: ["http://localhost:4002"],
+  max_age: 86400

@@ -342,6 +342,106 @@ Monitor these metrics:
 
 ---
 
+---
+
+## CORS Configuration
+
+### Overview
+
+Shadowfax implements **explicit CORS (Cross-Origin Resource Sharing)** configuration to control which frontend domains can access the API.
+
+### Environment-Specific Configuration
+
+#### Development
+Configured in `config/dev.exs`:
+```elixir
+config :shadowfax, :cors,
+  origins: [
+    "http://localhost:3000",      # React/Next.js default
+    "http://localhost:5173",      # Vite default
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173"
+  ],
+  max_age: 86400  # 24 hours
+```
+
+#### Production
+Configured in `config/runtime.exs` via environment variable:
+```bash
+# Set in production environment
+export CORS_ALLOWED_ORIGINS="https://app.example.com,https://www.example.com"
+```
+
+### Allowed Methods
+- `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`
+
+### Allowed Headers
+- `Authorization` - Bearer tokens
+- `Content-Type` - JSON/form data
+- `Accept` - Response format
+- `X-CSRF-Token` - CSRF protection
+- Standard headers: Origin, User-Agent, Cache-Control, etc.
+
+### Exposed Headers
+- `Content-Type`
+- `Content-Length`
+- `Authorization`
+
+### Security Considerations
+
+1. **Never use wildcard (`*`) in production**
+   - Explicitly list allowed origins
+   - Validate all origins are HTTPS (except localhost)
+
+2. **Preflight Request Caching**
+   - `max_age: 86400` (24 hours)
+   - Reduces OPTIONS requests
+   - Balance between performance and security
+
+3. **Update CORS Origins**
+   ```bash
+   # Add new production frontend
+   export CORS_ALLOWED_ORIGINS="https://app.example.com,https://new-app.example.com"
+   
+   # Restart application
+   ```
+
+4. **WebSocket CORS**
+   - WebSocket connections respect same origins
+   - Configure in `lib/shadowfax_web/endpoint.ex`
+
+### Testing CORS
+
+```bash
+# Test preflight request
+curl -X OPTIONS http://localhost:4000/api/auth/login \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: Content-Type,Authorization" \
+  -v
+
+# Should return:
+# Access-Control-Allow-Origin: http://localhost:3000
+# Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+# Access-Control-Allow-Headers: ...
+# Access-Control-Max-Age: 86400
+```
+
+### Troubleshooting
+
+**Browser shows CORS error**:
+1. Check origin is in allowed list
+2. Verify HTTPS in production
+3. Check preflight request succeeds
+4. Validate request headers are allowed
+
+**WebSocket connection fails**:
+1. Verify origin matches HTTP origin
+2. Check WebSocket endpoint configuration
+3. Ensure wss:// for HTTPS origins
+
+---
+
 ## Security Checklist
 
 ### Pre-Deployment
@@ -352,6 +452,8 @@ Monitor these metrics:
 - [ ] Database backups configured
 - [ ] Monitoring/alerting set up
 - [ ] HTTPS/TLS enforced
+- [ ] CORS origins explicitly configured (no wildcards)
+- [ ] CORS_ALLOWED_ORIGINS environment variable set
 
 ### Post-Deployment
 

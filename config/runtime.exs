@@ -60,6 +60,19 @@ if config_env() == :prod do
     token_salt: System.get_env("TOKEN_SALT") || "user_auth_token_salt_v1",
     token_version: String.to_integer(System.get_env("TOKEN_VERSION") || "1")
 
+  # CORS configuration for production
+  # IMPORTANT: Set CORS_ALLOWED_ORIGINS environment variable with comma-separated origins
+  # Example: "https://app.example.com,https://www.example.com"
+  cors_origins =
+    case System.get_env("CORS_ALLOWED_ORIGINS") do
+      nil -> []
+      origins -> String.split(origins, ",", trim: true)
+    end
+
+  config :shadowfax, :cors,
+    origins: cors_origins,
+    max_age: 86400
+
   config :shadowfax, ShadowfaxWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [

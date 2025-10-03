@@ -43,5 +43,28 @@ defmodule ShadowfaxWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+
+  # CORS Configuration
+  # Uses allowed origins from config (dev/prod specific)
+  plug CORSPlug,
+    origin: Application.compile_env(:shadowfax, [:cors, :origins], []),
+    max_age: Application.compile_env(:shadowfax, [:cors, :max_age], 86400),
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    headers: [
+      "Authorization",
+      "Content-Type",
+      "Accept",
+      "Origin",
+      "User-Agent",
+      "DNT",
+      "Cache-Control",
+      "X-Mx-ReqToken",
+      "Keep-Alive",
+      "X-Requested-With",
+      "If-Modified-Since",
+      "X-CSRF-Token"
+    ],
+    expose: ["Content-Type", "Content-Length", "Authorization"]
+
   plug ShadowfaxWeb.Router
 end

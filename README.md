@@ -58,8 +58,6 @@ Elixir chat server.
 ```
 
 # Things to improve
-- CORS configuration** - Define allowed origins explicitly
-
 - Pagination** - Message history endpoints need cursor-based pagination
 - Caching** - Cache frequently accessed channels/user data
 

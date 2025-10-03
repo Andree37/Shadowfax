@@ -74,3 +74,14 @@ config :swoosh, :api_client, false
 config :shadowfax,
   token_salt: System.get_env("TOKEN_SALT") || "dev_user_auth_token_salt",
   token_version: String.to_integer(System.get_env("TOKEN_VERSION") || "1")
+
+# CORS configuration for development
+# Allow localhost origins for frontend development
+config :shadowfax, :cors,
+  origins: [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173"
+  ],
+  max_age: 86400

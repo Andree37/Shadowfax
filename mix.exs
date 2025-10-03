@@ -52,7 +52,8 @@ defmodule Shadowfax.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:bcrypt_elixir, "~> 3.0"},
-      {:hammer, "~> 6.2"}
+      {:hammer, "~> 6.2"},
+      {:cors_plug, "~> 3.0"}
     ]
   end
 
