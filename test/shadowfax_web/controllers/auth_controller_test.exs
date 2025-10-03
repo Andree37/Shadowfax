@@ -3,6 +3,13 @@ defmodule ShadowfaxWeb.AuthControllerTest do
 
   alias Shadowfax.Accounts
 
+  setup %{conn: conn} do
+    # Use unique IP for each test to avoid rate limiting interference
+    unique_ip = {127, 0, 0, Enum.random(1..254)}
+    conn = %{conn | remote_ip: unique_ip}
+    {:ok, conn: conn}
+  end
+
   describe "POST /api/auth/register" do
     test "registers a new user with valid data", %{conn: conn} do
       user_params = %{

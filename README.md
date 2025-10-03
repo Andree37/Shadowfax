@@ -58,6 +58,4 @@ Elixir chat server.
 ```
 
 # Things to improve
-1. Password hashing (user.ex:115) - Replace Base64 with Bcrypt/Argon2
-2. Rate limiting - Add rate limits to prevent spam
 3. Input sanitization - Message content should be sanitized for XSS
