@@ -4,6 +4,7 @@ defmodule ShadowfaxWeb.ConversationChannel do
   alias Shadowfax.Chat
   alias Shadowfax.Accounts
   alias ShadowfaxWeb.Presence
+  alias ShadowfaxWeb.Errors
 
   @impl true
   def join("conversation:" <> conversation_id, _payload, socket) do
@@ -14,7 +15,7 @@ defmodule ShadowfaxWeb.ConversationChannel do
       send(self(), :after_join)
       {:ok, assign(socket, conversation_id: conversation_id)}
     else
-      {:error, %{reason: "unauthorized"}}
+      {:error, Errors.ws_error_response(Errors.ws_unauthorized())}
     end
   end
 
@@ -107,11 +108,11 @@ defmodule ShadowfaxWeb.ConversationChannel do
             {:reply, {:error, %{errors: serialize_errors(changeset)}}, socket}
         end
       else
-        {:reply, {:error, %{reason: "unauthorized"}}, socket}
+        {:reply, {:error, Errors.ws_error_response(Errors.ws_unauthorized())}, socket}
       end
     rescue
       Ecto.NoResultsError ->
-        {:reply, {:error, %{reason: "message_not_found"}}, socket}
+        {:reply, {:error, Errors.ws_error_response(Errors.ws_message_not_found())}, socket}
     end
   end
 
@@ -131,11 +132,11 @@ defmodule ShadowfaxWeb.ConversationChannel do
             {:reply, {:error, %{errors: serialize_errors(changeset)}}, socket}
         end
       else
-        {:reply, {:error, %{reason: "unauthorized"}}, socket}
+        {:reply, {:error, Errors.ws_error_response(Errors.ws_unauthorized())}, socket}
       end
     rescue
       Ecto.NoResultsError ->
-        {:reply, {:error, %{reason: "message_not_found"}}, socket}
+        {:reply, {:error, Errors.ws_error_response(Errors.ws_message_not_found())}, socket}
     end
   end
 
@@ -185,7 +186,7 @@ defmodule ShadowfaxWeb.ConversationChannel do
         }}, socket}
     rescue
       Ecto.NoResultsError ->
-        {:reply, {:error, %{reason: "message_not_found"}}, socket}
+        {:reply, {:error, Errors.ws_error_response(Errors.ws_message_not_found())}, socket}
     end
   end
 
@@ -206,7 +207,7 @@ defmodule ShadowfaxWeb.ConversationChannel do
       end
     rescue
       Ecto.NoResultsError ->
-        {:reply, {:error, %{reason: "conversation_not_found"}}, socket}
+        {:reply, {:error, Errors.ws_error_response(Errors.ws_conversation_not_found())}, socket}
     end
   end
 

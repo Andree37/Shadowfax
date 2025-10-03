@@ -4,6 +4,7 @@ defmodule ShadowfaxWeb.MessageController do
   alias Shadowfax.Chat
   alias Shadowfax.Accounts.User
   alias Shadowfax.Chat.{Message, Channel}
+  alias ShadowfaxWeb.Errors
 
   @doc """
   Create a channel message
@@ -31,7 +32,7 @@ defmodule ShadowfaxWeb.MessageController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied. You must be a member of this channel."
+          error: Errors.must_be_member()
         })
 
       {:error, changeset} ->
@@ -48,7 +49,7 @@ defmodule ShadowfaxWeb.MessageController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Channel not found"
+        error: Errors.channel_not_found()
       })
   end
 
@@ -57,7 +58,7 @@ defmodule ShadowfaxWeb.MessageController do
     |> put_status(:bad_request)
     |> json(%{
       success: false,
-      error: "Invalid request format. Expected 'message' parameter."
+      error: Errors.invalid_request("message")
     })
   end
 
@@ -90,7 +91,7 @@ defmodule ShadowfaxWeb.MessageController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied"
+          error: Errors.access_denied()
         })
 
       {:error, changeset} ->
@@ -107,7 +108,7 @@ defmodule ShadowfaxWeb.MessageController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Conversation not found"
+        error: Errors.conversation_not_found()
       })
   end
 
@@ -116,7 +117,7 @@ defmodule ShadowfaxWeb.MessageController do
     |> put_status(:bad_request)
     |> json(%{
       success: false,
-      error: "Invalid request format. Expected 'message' parameter."
+      error: Errors.invalid_request("message")
     })
   end
 
@@ -147,7 +148,7 @@ defmodule ShadowfaxWeb.MessageController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied"
+          error: Errors.access_denied()
         })
     end
   rescue
@@ -156,7 +157,7 @@ defmodule ShadowfaxWeb.MessageController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Message not found"
+        error: Errors.message_not_found()
       })
   end
 
@@ -183,7 +184,7 @@ defmodule ShadowfaxWeb.MessageController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "You can only edit your own messages within 15 minutes"
+          error: Errors.own_message_edit_only()
         })
 
       {:error, changeset} ->
@@ -200,7 +201,7 @@ defmodule ShadowfaxWeb.MessageController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Message not found"
+        error: Errors.message_not_found()
       })
   end
 
@@ -209,7 +210,7 @@ defmodule ShadowfaxWeb.MessageController do
     |> put_status(:bad_request)
     |> json(%{
       success: false,
-      error: "Invalid request format. Expected 'message' parameter."
+      error: Errors.invalid_request("message")
     })
   end
 
@@ -234,7 +235,7 @@ defmodule ShadowfaxWeb.MessageController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "You can only delete your own messages or you need admin/owner privileges"
+          error: Errors.delete_permission_denied()
         })
 
       {:error, changeset} ->
@@ -251,7 +252,7 @@ defmodule ShadowfaxWeb.MessageController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Message not found"
+        error: Errors.message_not_found()
       })
   end
 
@@ -284,7 +285,7 @@ defmodule ShadowfaxWeb.MessageController do
     |> put_status(:bad_request)
     |> json(%{
       success: false,
-      error: "Search query 'q' parameter is required"
+      error: Errors.search_query_required()
     })
   end
 
@@ -314,7 +315,7 @@ defmodule ShadowfaxWeb.MessageController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied"
+          error: Errors.access_denied()
         })
     end
   rescue
@@ -323,7 +324,7 @@ defmodule ShadowfaxWeb.MessageController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Message not found"
+        error: Errors.message_not_found()
       })
   end
 

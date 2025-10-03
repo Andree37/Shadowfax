@@ -5,6 +5,8 @@ defmodule ShadowfaxWeb.Plugs.RateLimit do
   import Plug.Conn
   import Phoenix.Controller
 
+  alias ShadowfaxWeb.Errors
+
   def init(opts) do
     %{
       limit: Keyword.get(opts, :limit, 10),
@@ -24,10 +26,7 @@ defmodule ShadowfaxWeb.Plugs.RateLimit do
       {:deny, _limit} ->
         conn
         |> put_status(:too_many_requests)
-        |> json(%{
-          success: false,
-          error: "Rate limit exceeded. Please try again later."
-        })
+        |> json(Errors.error_response(Errors.rate_limit_exceeded()))
         |> halt()
     end
   end

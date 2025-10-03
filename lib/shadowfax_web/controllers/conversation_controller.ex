@@ -5,6 +5,7 @@ defmodule ShadowfaxWeb.ConversationController do
   alias Shadowfax.Accounts
   alias Shadowfax.Accounts.User
   alias Shadowfax.Chat.DirectConversation
+  alias ShadowfaxWeb.Errors
 
   @doc """
   List all conversations for the authenticated user
@@ -47,7 +48,7 @@ defmodule ShadowfaxWeb.ConversationController do
         |> put_status(:bad_request)
         |> json(%{
           success: false,
-          error: "Cannot create conversation with yourself"
+          error: Errors.self_conversation()
         })
 
       {:error, :user_not_found} ->
@@ -55,7 +56,7 @@ defmodule ShadowfaxWeb.ConversationController do
         |> put_status(:not_found)
         |> json(%{
           success: false,
-          error: "User not found"
+          error: Errors.user_not_found()
         })
 
       {:error, changeset} ->
@@ -73,7 +74,7 @@ defmodule ShadowfaxWeb.ConversationController do
     |> put_status(:bad_request)
     |> json(%{
       success: false,
-      error: "Invalid request format. Expected 'user_id' parameter."
+      error: Errors.invalid_request("user_id")
     })
   end
 
@@ -98,7 +99,7 @@ defmodule ShadowfaxWeb.ConversationController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied"
+          error: Errors.access_denied()
         })
     end
   rescue
@@ -107,7 +108,7 @@ defmodule ShadowfaxWeb.ConversationController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Conversation not found"
+        error: Errors.conversation_not_found()
       })
   end
 
@@ -137,7 +138,7 @@ defmodule ShadowfaxWeb.ConversationController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied"
+          error: Errors.access_denied()
         })
     end
   rescue
@@ -146,7 +147,7 @@ defmodule ShadowfaxWeb.ConversationController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Conversation not found"
+        error: Errors.conversation_not_found()
       })
 
     ArgumentError ->
@@ -154,7 +155,7 @@ defmodule ShadowfaxWeb.ConversationController do
       |> put_status(:bad_request)
       |> json(%{
         success: false,
-        error: "Invalid limit or offset parameter"
+        error: Errors.invalid_pagination()
       })
   end
 
@@ -180,7 +181,7 @@ defmodule ShadowfaxWeb.ConversationController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied"
+          error: Errors.access_denied()
         })
 
       {:error, changeset} ->
@@ -197,7 +198,7 @@ defmodule ShadowfaxWeb.ConversationController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Conversation not found"
+        error: Errors.conversation_not_found()
       })
   end
 
@@ -223,7 +224,7 @@ defmodule ShadowfaxWeb.ConversationController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied"
+          error: Errors.access_denied()
         })
 
       {:error, changeset} ->
@@ -240,7 +241,7 @@ defmodule ShadowfaxWeb.ConversationController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Conversation not found"
+        error: Errors.conversation_not_found()
       })
   end
 

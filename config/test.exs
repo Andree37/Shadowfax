@@ -31,3 +31,8 @@ config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# Token configuration for testing
+config :shadowfax,
+  token_salt: "test_user_auth_token_salt",
+  token_version: 1

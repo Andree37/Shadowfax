@@ -2,6 +2,8 @@ defmodule ShadowfaxWeb.AuthControllerTest do
   use ShadowfaxWeb.ConnCase, async: true
 
   alias Shadowfax.Accounts
+  alias ShadowfaxWeb.Errors
+  import ShadowfaxWeb.AuthHelpers
 
   setup %{conn: conn} do
     # Use unique IP for each test to avoid rate limiting interference
@@ -26,13 +28,15 @@ defmodule ShadowfaxWeb.AuthControllerTest do
                "success" => true,
                "data" => %{
                  "user" => user,
-                 "token" => token
+                 "access_token" => access_token,
+                 "refresh_token" => refresh_token
                }
              } = json_response(conn, 201)
 
       assert user["username"] == "newuser"
       assert user["email"] == "newuser@example.com"
-      assert is_binary(token)
+      assert is_binary(access_token)
+      assert is_binary(refresh_token)
       refute Map.has_key?(user, "password")
       refute Map.has_key?(user, "password_hash")
     end
@@ -88,12 +92,12 @@ defmodule ShadowfaxWeb.AuthControllerTest do
                "success" => true,
                "data" => %{
                  "user" => user,
-                 "token" => token
+                 "access_token" => access_token
                }
              } = json_response(conn, 200)
 
       assert user["email"] == "login@example.com"
-      assert is_binary(token)
+      assert is_binary(access_token)
     end
 
     test "rejects login with invalid password", %{conn: conn} do
@@ -143,7 +147,7 @@ defmodule ShadowfaxWeb.AuthControllerTest do
           last_name: "User"
         })
 
-      token = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user.id)
+      token = create_test_token(user)
 
       {:ok, user: user, token: token}
     end
@@ -170,8 +174,10 @@ defmodule ShadowfaxWeb.AuthControllerTest do
 
       assert %{
                "success" => false,
-               "error" => "Authentication required"
+               "error" => error_msg
              } = json_response(conn, 401)
+
+      assert error_msg == Errors.missing_authorization()
     end
   end
 
@@ -186,7 +192,7 @@ defmodule ShadowfaxWeb.AuthControllerTest do
           last_name: "User"
         })
 
-      token = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user.id)
+      token = create_test_token(user)
 
       {:ok, user: user, token: token}
     end
@@ -208,8 +214,10 @@ defmodule ShadowfaxWeb.AuthControllerTest do
 
       assert %{
                "success" => false,
-               "error" => "Authentication required"
+               "error" => error_msg
              } = json_response(conn, 401)
+
+      assert error_msg == Errors.missing_authorization()
     end
   end
 
@@ -224,7 +232,7 @@ defmodule ShadowfaxWeb.AuthControllerTest do
           last_name: "User"
         })
 
-      token = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user.id)
+      token = create_test_token(user)
 
       {:ok, user: user, token: token}
     end
@@ -251,8 +259,10 @@ defmodule ShadowfaxWeb.AuthControllerTest do
 
       assert %{
                "success" => false,
-               "error" => "Authentication required"
+               "error" => error_msg
              } = json_response(conn, 401)
+
+      assert error_msg == Errors.invalid_token()
     end
   end
 end

@@ -58,12 +58,7 @@ Elixir chat server.
 ```
 
 # Things to improve
-- Authorization checks** - Verify users can only access their own conversations/channels
-- JWT secret management** - Ensure proper secret key rotation and storage
 - CORS configuration** - Define allowed origins explicitly
-
-- WebSocket/Phoenix Channels** - Currently REST-only; add real-time messaging via Phoenix.Channel
-- Presence tracking** - Show who's online using Phoenix.Presence
 
 - Pagination** - Message history endpoints need cursor-based pagination
 - Caching** - Cache frequently accessed channels/user data

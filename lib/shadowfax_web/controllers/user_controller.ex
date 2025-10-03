@@ -3,6 +3,7 @@ defmodule ShadowfaxWeb.UserController do
 
   alias Shadowfax.Accounts
   alias Shadowfax.Accounts.User
+  alias ShadowfaxWeb.Errors
 
   @doc """
   List all users with optional filters
@@ -39,7 +40,7 @@ defmodule ShadowfaxWeb.UserController do
         |> put_status(:not_found)
         |> json(%{
           success: false,
-          error: "User not found"
+          error: Errors.user_not_found()
         })
     end
   end
@@ -65,7 +66,7 @@ defmodule ShadowfaxWeb.UserController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "You can only update your own profile"
+          error: Errors.own_profile_only()
         })
 
       {:error, changeset} ->
@@ -80,10 +81,7 @@ defmodule ShadowfaxWeb.UserController do
     Ecto.NoResultsError ->
       conn
       |> put_status(:not_found)
-      |> json(%{
-        success: false,
-        error: "User not found"
-      })
+      |> json(Errors.error_response(Errors.user_not_found()))
   end
 
   @doc """
@@ -107,7 +105,7 @@ defmodule ShadowfaxWeb.UserController do
     |> put_status(:bad_request)
     |> json(%{
       success: false,
-      error: "Search query 'q' parameter is required and cannot be empty"
+      error: Errors.search_query_required()
     })
   end
 

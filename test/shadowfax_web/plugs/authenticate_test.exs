@@ -3,6 +3,8 @@ defmodule ShadowfaxWeb.Plugs.AuthenticateTest do
 
   alias ShadowfaxWeb.Plugs.Authenticate
   alias Shadowfax.Accounts
+  alias ShadowfaxWeb.Errors
+  import ShadowfaxWeb.AuthHelpers
 
   setup do
     # Create a test user
@@ -15,8 +17,8 @@ defmodule ShadowfaxWeb.Plugs.AuthenticateTest do
         last_name: "User"
       })
 
-    # Generate a valid token
-    token = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user.id)
+    # Generate a valid token using helper
+    token = create_test_token(user)
 
     {:ok, user: user, token: token}
   end
@@ -38,10 +40,9 @@ defmodule ShadowfaxWeb.Plugs.AuthenticateTest do
       assert conn.halted
       assert conn.status == 401
 
-      assert json_response(conn, 401) == %{
-               "success" => false,
-               "error" => "Authentication required"
-             }
+      response = json_response(conn, 401)
+      assert response["success"] == false
+      assert response["error"] == Errors.missing_authorization()
     end
 
     test "rejects request with invalid token format", %{conn: conn} do

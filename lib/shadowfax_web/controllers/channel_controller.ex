@@ -4,6 +4,7 @@ defmodule ShadowfaxWeb.ChannelController do
   alias Shadowfax.Chat
   alias Shadowfax.Chat.Channel
   alias Shadowfax.Accounts.User
+  alias ShadowfaxWeb.Errors
 
   @doc """
   List channels - public channels for all users, user's joined channels if authenticated
@@ -56,10 +57,7 @@ defmodule ShadowfaxWeb.ChannelController do
   def create(conn, _params) do
     conn
     |> put_status(:bad_request)
-    |> json(%{
-      success: false,
-      error: "Invalid request format. Expected 'channel' parameter."
-    })
+    |> json(Errors.error_response(Errors.invalid_request("channel")))
   end
 
   @doc """
@@ -82,19 +80,13 @@ defmodule ShadowfaxWeb.ChannelController do
       false ->
         conn
         |> put_status(:forbidden)
-        |> json(%{
-          success: false,
-          error: "Access denied. Channel is private."
-        })
+        |> json(Errors.error_response(Errors.channel_private()))
     end
   rescue
     Ecto.NoResultsError ->
       conn
       |> put_status(:not_found)
-      |> json(%{
-        success: false,
-        error: "Channel not found"
-      })
+      |> json(Errors.error_response(Errors.channel_not_found()))
   end
 
   @doc """
@@ -118,7 +110,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied. Admin or owner privileges required."
+          error: Errors.admin_required()
         })
 
       {:error, changeset} ->
@@ -135,7 +127,7 @@ defmodule ShadowfaxWeb.ChannelController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Channel not found"
+        error: Errors.channel_not_found()
       })
   end
 
@@ -160,7 +152,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied. Admin or owner privileges required."
+          error: Errors.admin_required()
         })
 
       {:error, changeset} ->
@@ -177,7 +169,7 @@ defmodule ShadowfaxWeb.ChannelController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Channel not found"
+        error: Errors.channel_not_found()
       })
   end
 
@@ -221,7 +213,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:conflict)
         |> json(%{
           success: false,
-          error: "You are already a member of this channel"
+          error: Errors.already_member()
         })
 
       false ->
@@ -229,7 +221,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Cannot join this channel. Check if it's private or at capacity."
+          error: Errors.cannot_join_channel()
         })
     end
   rescue
@@ -238,7 +230,7 @@ defmodule ShadowfaxWeb.ChannelController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Channel not found"
+        error: Errors.channel_not_found()
       })
   end
 
@@ -268,7 +260,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:conflict)
         |> json(%{
           success: false,
-          error: "You are not a member of this channel"
+          error: Errors.not_channel_member()
         })
 
       {:error, :not_found} ->
@@ -276,7 +268,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:conflict)
         |> json(%{
           success: false,
-          error: "You are not a member of this channel"
+          error: Errors.not_channel_member()
         })
     end
   rescue
@@ -285,7 +277,7 @@ defmodule ShadowfaxWeb.ChannelController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Channel not found"
+        error: Errors.channel_not_found()
       })
   end
 
@@ -312,7 +304,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied. Channel is private."
+          error: Errors.channel_private()
         })
     end
   rescue
@@ -321,7 +313,7 @@ defmodule ShadowfaxWeb.ChannelController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Channel not found"
+        error: Errors.channel_not_found()
       })
   end
 
@@ -351,7 +343,7 @@ defmodule ShadowfaxWeb.ChannelController do
         |> put_status(:forbidden)
         |> json(%{
           success: false,
-          error: "Access denied. Channel is private."
+          error: Errors.channel_private()
         })
     end
   rescue
@@ -360,7 +352,7 @@ defmodule ShadowfaxWeb.ChannelController do
       |> put_status(:not_found)
       |> json(%{
         success: false,
-        error: "Channel not found"
+        error: Errors.channel_not_found()
       })
 
     ArgumentError ->
@@ -368,7 +360,7 @@ defmodule ShadowfaxWeb.ChannelController do
       |> put_status(:bad_request)
       |> json(%{
         success: false,
-        error: "Invalid limit or offset parameter"
+        error: Errors.invalid_pagination()
       })
   end
 

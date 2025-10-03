@@ -2,6 +2,7 @@ defmodule ShadowfaxWeb.RateLimitIntegrationTest do
   use ShadowfaxWeb.ConnCase, async: false
 
   alias Shadowfax.Accounts
+  import ShadowfaxWeb.AuthHelpers
 
   setup %{conn: conn} do
     # Clear Hammer backend before each test by deleting old buckets
@@ -119,7 +120,7 @@ defmodule ShadowfaxWeb.RateLimitIntegrationTest do
           last_name: "User"
         })
 
-      token = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user.id)
+      token = create_test_token(user)
 
       # Create a channel for testing
       {:ok, channel} =
@@ -183,8 +184,8 @@ defmodule ShadowfaxWeb.RateLimitIntegrationTest do
           last_name: "User2"
         })
 
-      token1 = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user1.id)
-      token2 = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user2.id)
+      token1 = create_test_token(user1)
+      token2 = create_test_token(user2)
 
       conn1 = put_req_header(conn, "authorization", "Bearer #{token1}")
       conn2 = put_req_header(conn, "authorization", "Bearer #{token2}")
@@ -225,7 +226,7 @@ defmodule ShadowfaxWeb.RateLimitIntegrationTest do
           last_name: "User"
         })
 
-      token = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user.id)
+      token = create_test_token(user)
 
       {:ok, user: user, token: token}
     end
@@ -286,7 +287,7 @@ defmodule ShadowfaxWeb.RateLimitIntegrationTest do
           last_name: "User"
         })
 
-      token = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user.id)
+      token = create_test_token(user)
 
       {:ok, channel} =
         Shadowfax.Chat.create_channel(%{

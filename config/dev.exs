@@ -2,13 +2,13 @@ import Config
 
 # Configure your database
 config :shadowfax, Shadowfax.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "shadowfax_dev",
+  username: System.get_env("DATABASE_USERNAME") || "postgres",
+  password: System.get_env("DATABASE_PASSWORD") || "postgres",
+  hostname: System.get_env("DATABASE_HOST") || "localhost",
+  database: System.get_env("DATABASE_NAME") || "shadowfax_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  pool_size: 10
+  pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -23,7 +23,9 @@ config :shadowfax, ShadowfaxWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: false,
-  secret_key_base: "Z7xwZLtYqM9IrCiAghpX114gInVw8kZy63SodPE8ukpTsosOs7+Tcm7DTgUdNvRE",
+  secret_key_base:
+    System.get_env("SECRET_KEY_BASE") ||
+      "Z7xwZLtYqM9IrCiAghpX114gInVw8kZy63SodPE8ukpTsosOs7+Tcm7DTgUdNvRE",
   watchers: [],
   live_reload: [
     patterns: []
@@ -67,3 +69,8 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Token configuration for development
+config :shadowfax,
+  token_salt: System.get_env("TOKEN_SALT") || "dev_user_auth_token_salt",
+  token_version: String.to_integer(System.get_env("TOKEN_VERSION") || "1")

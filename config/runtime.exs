@@ -55,6 +55,11 @@ if config_env() == :prod do
 
   config :shadowfax, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
+  # Token configuration
+  config :shadowfax,
+    token_salt: System.get_env("TOKEN_SALT") || "user_auth_token_salt_v1",
+    token_version: String.to_integer(System.get_env("TOKEN_VERSION") || "1")
+
   config :shadowfax, ShadowfaxWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [

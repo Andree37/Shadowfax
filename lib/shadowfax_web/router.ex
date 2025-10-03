@@ -24,6 +24,7 @@ defmodule ShadowfaxWeb.Router do
     # Public auth routes (no authentication required)
     post "/auth/register", AuthController, :register
     post "/auth/login", AuthController, :login
+    post "/auth/refresh", AuthController, :refresh
   end
 
   scope "/api", ShadowfaxWeb do
@@ -32,7 +33,9 @@ defmodule ShadowfaxWeb.Router do
     # Protected auth routes
     delete "/auth/logout", AuthController, :logout
     get "/auth/me", AuthController, :me
-    get "/auth/verify", AuthController, :verify_token
+    get "/auth/verify", AuthController, :verify_token_endpoint
+    get "/auth/sessions", AuthController, :sessions
+    delete "/auth/sessions/:id", AuthController, :revoke_session
 
     # Channel routes
     get "/channels", ChannelController, :index

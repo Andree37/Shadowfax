@@ -2,6 +2,8 @@ defmodule ShadowfaxWeb.MessageControllerTest do
   use ShadowfaxWeb.ConnCase, async: true
 
   alias Shadowfax.{Accounts, Chat}
+  alias ShadowfaxWeb.Errors
+  import ShadowfaxWeb.AuthHelpers
 
   setup do
     # Create test users
@@ -35,9 +37,9 @@ defmodule ShadowfaxWeb.MessageControllerTest do
     # Create a direct conversation
     {:ok, conversation} = Chat.find_or_create_conversation(user1.id, user2.id)
 
-    # Generate tokens
-    token1 = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user1.id)
-    token2 = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user2.id)
+    # Generate tokens using helper
+    token1 = create_test_token(user1)
+    token2 = create_test_token(user2)
 
     {:ok,
      user1: user1,
@@ -113,8 +115,10 @@ defmodule ShadowfaxWeb.MessageControllerTest do
 
       assert %{
                "success" => false,
-               "error" => "Authentication required"
+               "error" => error_msg
              } = json_response(conn, 401)
+
+      assert error_msg == Errors.missing_authorization()
     end
 
     test "rejects message to private channel when not a member", %{
@@ -212,8 +216,10 @@ defmodule ShadowfaxWeb.MessageControllerTest do
 
       assert %{
                "success" => false,
-               "error" => "Authentication required"
+               "error" => error_msg
              } = json_response(conn, 401)
+
+      assert error_msg == Errors.missing_authorization()
     end
 
     test "rejects direct message to conversation user is not part of", %{
@@ -235,7 +241,7 @@ defmodule ShadowfaxWeb.MessageControllerTest do
       {:ok, conv} = Chat.find_or_create_conversation(user1.id, user2.id)
 
       # Try to send message as user3 (not part of conversation)
-      token3 = Phoenix.Token.sign(ShadowfaxWeb.Endpoint, "user auth", user3.id)
+      token3 = create_test_token(user3)
 
       conn =
         conn
@@ -328,8 +334,10 @@ defmodule ShadowfaxWeb.MessageControllerTest do
 
       assert %{
                "success" => false,
-               "error" => "Authentication required"
+               "error" => error_msg
              } = json_response(conn, 401)
+
+      assert error_msg == Errors.missing_authorization()
     end
   end
 
@@ -399,8 +407,10 @@ defmodule ShadowfaxWeb.MessageControllerTest do
 
       assert %{
                "success" => false,
-               "error" => "Authentication required"
+               "error" => error_msg
              } = json_response(conn, 401)
+
+      assert error_msg == Errors.missing_authorization()
     end
   end
 end
