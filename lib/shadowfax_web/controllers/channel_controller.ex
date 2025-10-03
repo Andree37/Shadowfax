@@ -43,14 +43,6 @@ defmodule ShadowfaxWeb.ChannelController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       {:error, changeset} ->
         conn
         |> put_status(:unprocessable_entity)
@@ -87,14 +79,6 @@ defmodule ShadowfaxWeb.ChannelController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -129,14 +113,6 @@ defmodule ShadowfaxWeb.ChannelController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -179,14 +155,6 @@ defmodule ShadowfaxWeb.ChannelController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -248,14 +216,6 @@ defmodule ShadowfaxWeb.ChannelController do
           })
       end
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       true ->
         conn
         |> put_status(:conflict)
@@ -303,14 +263,6 @@ defmodule ShadowfaxWeb.ChannelController do
         message: "Successfully left the channel"
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:conflict)
@@ -355,14 +307,6 @@ defmodule ShadowfaxWeb.ChannelController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -402,14 +346,6 @@ defmodule ShadowfaxWeb.ChannelController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)

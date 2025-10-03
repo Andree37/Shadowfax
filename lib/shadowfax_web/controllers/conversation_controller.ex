@@ -10,26 +10,17 @@ defmodule ShadowfaxWeb.ConversationController do
   List all conversations for the authenticated user
   """
   def index(conn, _params) do
-    with {:ok, user} <- get_current_user(conn) do
-      conversations = Chat.list_user_conversations(user.id)
+    {:ok, user} = get_current_user(conn)
+    conversations = Chat.list_user_conversations(user.id)
 
-      conn
-      |> json(%{
-        success: true,
-        data: %{
-          conversations:
-            Enum.map(conversations, fn conv -> serialize_conversation(conv, user.id) end)
-        }
-      })
-    else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-    end
+    conn
+    |> json(%{
+      success: true,
+      data: %{
+        conversations:
+          Enum.map(conversations, fn conv -> serialize_conversation(conv, user.id) end)
+      }
+    })
   end
 
   @doc """
@@ -51,14 +42,6 @@ defmodule ShadowfaxWeb.ConversationController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:bad_request)
@@ -110,14 +93,6 @@ defmodule ShadowfaxWeb.ConversationController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -157,14 +132,6 @@ defmodule ShadowfaxWeb.ConversationController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -208,14 +175,6 @@ defmodule ShadowfaxWeb.ConversationController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -259,14 +218,6 @@ defmodule ShadowfaxWeb.ConversationController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)

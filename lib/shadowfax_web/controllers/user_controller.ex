@@ -64,14 +64,6 @@ defmodule ShadowfaxWeb.UserController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Not authenticated"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -139,14 +131,6 @@ defmodule ShadowfaxWeb.UserController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Not authenticated"
-        })
-
       {:error, changeset} ->
         conn
         |> put_status(:unprocessable_entity)

@@ -26,14 +26,6 @@ defmodule ShadowfaxWeb.MessageController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -93,14 +85,6 @@ defmodule ShadowfaxWeb.MessageController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -158,14 +142,6 @@ defmodule ShadowfaxWeb.MessageController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -202,14 +178,6 @@ defmodule ShadowfaxWeb.MessageController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -261,14 +229,6 @@ defmodule ShadowfaxWeb.MessageController do
         message: "Message deleted successfully"
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
@@ -299,33 +259,24 @@ defmodule ShadowfaxWeb.MessageController do
   Search messages
   """
   def search(conn, %{"q" => query} = params) do
-    with {:ok, user} <- get_current_user(conn) do
-      opts = build_search_opts(params, user.id)
-      messages = Chat.search_messages(query, opts)
+    {:ok, user} = get_current_user(conn)
+    opts = build_search_opts(params, user.id)
+    messages = Chat.search_messages(query, opts)
 
-      # Filter messages based on access
-      accessible_messages =
-        Enum.filter(messages, fn message ->
-          can_access_message?(message, user.id)
-        end)
+    # Filter messages based on access
+    accessible_messages =
+      Enum.filter(messages, fn message ->
+        can_access_message?(message, user.id)
+      end)
 
-      conn
-      |> json(%{
-        success: true,
-        data: %{
-          messages: Enum.map(accessible_messages, &serialize_message/1),
-          query: query
-        }
-      })
-    else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-    end
+    conn
+    |> json(%{
+      success: true,
+      data: %{
+        messages: Enum.map(accessible_messages, &serialize_message/1),
+        query: query
+      }
+    })
   end
 
   def search(conn, _params) do
@@ -358,14 +309,6 @@ defmodule ShadowfaxWeb.MessageController do
         }
       })
     else
-      {:error, :unauthorized} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{
-          success: false,
-          error: "Authentication required"
-        })
-
       false ->
         conn
         |> put_status(:forbidden)
