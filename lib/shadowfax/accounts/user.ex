@@ -100,8 +100,7 @@ defmodule Shadowfax.Accounts.User do
 
     if hash_password? && password && changeset.valid? do
       changeset
-      # If using Bcrypt or similar, replace with proper hashing
-      |> put_change(:hashed_password, Base.encode64(password <> "salt"))
+      |> put_change(:hashed_password, Bcrypt.hash_pwd_salt(password))
       |> delete_change(:password)
     else
       changeset
@@ -126,12 +125,11 @@ defmodule Shadowfax.Accounts.User do
   """
   def valid_password?(%__MODULE__{hashed_password: hashed_password}, password)
       when is_binary(hashed_password) and byte_size(password) > 0 do
-    # Replace with proper password verification (e.g., Bcrypt.verify_pass/2)
-    Base.encode64(password <> "salt") == hashed_password
+    Bcrypt.verify_pass(password, hashed_password)
   end
 
   def valid_password?(_, _) do
-    # Replace with Bcrypt.no_user_verify() if using Bcrypt
+    Bcrypt.no_user_verify()
     false
   end
 
