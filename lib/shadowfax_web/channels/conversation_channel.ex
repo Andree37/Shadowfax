@@ -3,6 +3,7 @@ defmodule ShadowfaxWeb.ConversationChannel do
 
   alias Shadowfax.Chat
   alias Shadowfax.Accounts
+  alias ShadowfaxWeb.Presence
 
   @impl true
   def join("conversation:" <> conversation_id, _payload, socket) do
@@ -40,19 +41,26 @@ defmodule ShadowfaxWeb.ConversationChannel do
   def handle_info(:after_join, socket) do
     conversation_id = socket.assigns.conversation_id
     user_id = socket.assigns.current_user_id
+    user = Accounts.get_user!(user_id)
 
-    # Set user as online
-    Accounts.set_user_online(Accounts.get_user!(user_id))
+    # Track user presence
+    {:ok, _} =
+      Presence.track(socket, user_id, %{
+        user_id: user.id,
+        username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        avatar_url: user.avatar_url,
+        status: user.status,
+        online_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      })
 
     # Get recent messages
     messages = Chat.list_direct_messages(conversation_id, limit: 50)
     push(socket, "messages_loaded", %{messages: serialize_messages(messages)})
 
-    # Broadcast user joined to the other user only
-    broadcast_from!(socket, "user_joined", %{
-      user: serialize_user(Accounts.get_user!(user_id)),
-      timestamp: DateTime.utc_now()
-    })
+    # Send current presence list to the joining user
+    push(socket, "presence_state", Presence.list(socket))
 
     {:noreply, socket}
   end
@@ -203,19 +211,8 @@ defmodule ShadowfaxWeb.ConversationChannel do
   end
 
   @impl true
-  def terminate(_reason, socket) do
-    user_id = socket.assigns.current_user_id
-    user = Accounts.get_user!(user_id)
-
-    # Set user as offline
-    Accounts.set_user_offline(user)
-
-    # Broadcast user left
-    broadcast_from!(socket, "user_left", %{
-      user: serialize_user(user),
-      timestamp: DateTime.utc_now()
-    })
-
+  def terminate(_reason, _socket) do
+    # Presence tracking is automatically stopped when the socket disconnects
     :ok
   end
 
@@ -249,7 +246,6 @@ defmodule ShadowfaxWeb.ConversationChannel do
       last_name: user.last_name,
       avatar_url: user.avatar_url,
       status: user.status,
-      is_online: user.is_online,
       display_name: Shadowfax.Accounts.User.display_name(user)
     }
   end

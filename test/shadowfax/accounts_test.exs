@@ -154,89 +154,26 @@ defmodule Shadowfax.AccountsTest do
     end
   end
 
-  describe "update_user_status/2" do
-    test "updates user online status and last_seen_at" do
+  describe "update_user/2 with status" do
+    test "updates user status" do
       {:ok, user} =
         Accounts.create_user(%{
-          username: "onlinetest",
-          email: "online@example.com",
+          username: "statustest",
+          email: "status@example.com",
           password: "Pass1234!"
         })
 
-      assert user.is_online == false
-      assert user.last_seen_at == nil
+      assert user.status == "available"
 
       assert {:ok, updated} =
-               Accounts.update_user_status(user, %{
-                 is_online: true,
-                 status: "online"
-               })
+               Accounts.update_user(user, %{status: "away"})
 
-      assert updated.is_online == true
-      assert updated.status == "online"
-      assert updated.last_seen_at != nil
-    end
-  end
+      assert updated.status == "away"
 
-  describe "set_user_online/1 and set_user_offline/1" do
-    test "sets user online" do
-      {:ok, user} =
-        Accounts.create_user(%{
-          username: "online",
-          email: "online@example.com",
-          password: "Pass1234!"
-        })
+      assert {:ok, updated} =
+               Accounts.update_user(updated, %{status: "busy"})
 
-      {:ok, online_user} = Accounts.set_user_online(user)
-      assert online_user.is_online == true
-      assert online_user.status == "online"
-    end
-
-    test "sets user offline" do
-      {:ok, user} =
-        Accounts.create_user(%{
-          username: "offline",
-          email: "offline@example.com",
-          password: "Pass1234!"
-        })
-
-      {:ok, online_user} = Accounts.set_user_online(user)
-      {:ok, offline_user} = Accounts.set_user_offline(online_user)
-
-      assert offline_user.is_online == false
-      assert offline_user.status == "offline"
-    end
-  end
-
-  describe "list_online_users/0" do
-    test "returns only online users" do
-      {:ok, user1} =
-        Accounts.create_user(%{
-          username: "online1",
-          email: "online1@example.com",
-          password: "Pass1234!"
-        })
-
-      {:ok, user2} =
-        Accounts.create_user(%{
-          username: "online2",
-          email: "online2@example.com",
-          password: "Pass1234!"
-        })
-
-      {:ok, _user3} =
-        Accounts.create_user(%{
-          username: "offline",
-          email: "offline@example.com",
-          password: "Pass1234!"
-        })
-
-      Accounts.set_user_online(user1)
-      Accounts.set_user_online(user2)
-
-      online_users = Accounts.list_online_users()
-      assert length(online_users) == 2
-      assert Enum.all?(online_users, fn u -> u.is_online == true end)
+      assert updated.status == "busy"
     end
   end
 
@@ -321,7 +258,7 @@ defmodule Shadowfax.AccountsTest do
 
   describe "get_user_stats/0" do
     test "returns user statistics" do
-      {:ok, user1} =
+      {:ok, _user1} =
         Accounts.create_user(%{
           username: "stats1",
           email: "stats1@example.com",
@@ -335,12 +272,10 @@ defmodule Shadowfax.AccountsTest do
           password: "Pass1234!"
         })
 
-      Accounts.set_user_online(user1)
-
       stats = Accounts.get_user_stats()
       assert stats.total_users == 2
-      assert stats.online_users == 1
       assert is_integer(stats.new_users_today)
+      # Note: online_users count is now tracked via Phoenix.Presence, not the database
     end
   end
 

@@ -47,15 +47,13 @@ defmodule ShadowfaxWeb.AuthController do
   def login(conn, %{"email" => email, "password" => password}) do
     case Accounts.get_user_by_email_and_password(email, password) do
       %User{} = user ->
-        # Set user as online
-        {:ok, updated_user} = Accounts.set_user_online(user)
-        token = generate_token(updated_user)
+        token = generate_token(user)
 
         conn
         |> json(%{
           success: true,
           data: %{
-            user: serialize_user(updated_user),
+            user: serialize_user(user),
             token: token
           }
         })
@@ -84,10 +82,7 @@ defmodule ShadowfaxWeb.AuthController do
   """
   def logout(conn, _params) do
     case get_current_user(conn) do
-      %User{} = user ->
-        # Set user as offline
-        {:ok, _updated_user} = Accounts.set_user_offline(user)
-
+      %User{} = _user ->
         conn
         |> json(%{
           success: true,
@@ -189,8 +184,6 @@ defmodule ShadowfaxWeb.AuthController do
       last_name: user.last_name,
       avatar_url: user.avatar_url,
       status: user.status,
-      is_online: user.is_online,
-      last_seen_at: user.last_seen_at,
       display_name: User.display_name(user),
       inserted_at: user.inserted_at,
       updated_at: user.updated_at

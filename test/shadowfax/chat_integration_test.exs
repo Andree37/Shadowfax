@@ -33,8 +33,7 @@ defmodule Shadowfax.ChatIntegrationTest do
       assert user.first_name == "Test"
       assert user.last_name == "User"
       assert user.hashed_password != nil
-      assert user.status == "offline"
-      assert user.is_online == false
+      assert user.status == "available"
 
       # Verify user exists in database
       db_user = Accounts.get_user!(user.id)
@@ -319,29 +318,22 @@ defmodule Shadowfax.ChatIntegrationTest do
           password: "Pass1234!"
         })
 
-      assert user.is_online == false
-      assert user.status == "offline"
+      assert user.status == "available"
 
-      # Set user online
-      {:ok, online_user} = Accounts.set_user_online(user)
-      assert online_user.is_online == true
-      assert online_user.status == "online"
-      assert online_user.last_seen_at != nil
-
-      # Set user offline
-      {:ok, offline_user} = Accounts.set_user_offline(online_user)
-      assert offline_user.is_online == false
-      assert offline_user.status == "offline"
-
-      # Update user status directly
-      {:ok, away_user} =
-        Accounts.update_user_status(offline_user, %{
-          is_online: true,
-          status: "away"
-        })
-
-      assert away_user.is_online == true
+      # Update user status to away
+      {:ok, away_user} = Accounts.update_user(user, %{status: "away"})
       assert away_user.status == "away"
+
+      # Update user status to busy
+      {:ok, busy_user} = Accounts.update_user(away_user, %{status: "busy"})
+      assert busy_user.status == "busy"
+
+      # Update user status to dnd
+      {:ok, dnd_user} = Accounts.update_user(busy_user, %{status: "dnd"})
+      assert dnd_user.status == "dnd"
+
+      # Note: Online/offline status is now tracked via Phoenix.Presence, not the database
+      # Users are considered online when connected to a channel via WebSocket
     end
   end
 

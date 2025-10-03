@@ -7,12 +7,8 @@ defmodule ShadowfaxWeb.UserController do
   @doc """
   List all users with optional filters
   """
-  def index(conn, params) do
-    users =
-      case params do
-        %{"online" => "true"} -> Accounts.list_online_users()
-        _ -> Accounts.list_users()
-      end
+  def index(conn, _params) do
+    users = Accounts.list_users()
 
     conn
     |> json(%{
@@ -116,13 +112,11 @@ defmodule ShadowfaxWeb.UserController do
   end
 
   @doc """
-  Update user status (online, away, busy, offline)
+  Update user status (available, away, busy, dnd)
   """
-  def update_status(conn, %{"status" => status} = params) do
+  def update_status(conn, %{"status" => status}) do
     with {:ok, user} <- get_current_user(conn),
-         is_online <- Map.get(params, "is_online", user.is_online),
-         {:ok, updated_user} <-
-           Accounts.update_user_status(user, %{status: status, is_online: is_online}) do
+         {:ok, updated_user} <- Accounts.update_user(user, %{status: status}) do
       conn
       |> json(%{
         success: true,
@@ -176,8 +170,6 @@ defmodule ShadowfaxWeb.UserController do
       last_name: user.last_name,
       avatar_url: user.avatar_url,
       status: user.status,
-      is_online: user.is_online,
-      last_seen_at: user.last_seen_at,
       display_name: User.display_name(user),
       inserted_at: user.inserted_at,
       updated_at: user.updated_at

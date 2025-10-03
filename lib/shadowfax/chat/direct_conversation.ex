@@ -195,13 +195,6 @@ defmodule Shadowfax.Chat.DirectConversation do
     User.display_name(other_user)
   end
 
-  @doc """
-  Checks if both users are online for typing indicators.
-  """
-  def both_users_online?(%__MODULE__{user1: user1, user2: user2}) do
-    User.online?(user1) && User.online?(user2)
-  end
-
   defp archive_field_for_user(%__MODULE__{user1_id: user1_id}, user_id)
        when user_id == user1_id do
     :is_archived_by_user1

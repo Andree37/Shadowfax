@@ -124,50 +124,6 @@ defmodule Shadowfax.Accounts do
   end
 
   @doc """
-  Updates a user's online status and last seen time.
-
-  ## Examples
-
-      iex> update_user_status(user, %{is_online: true, status: "online"})
-      {:ok, %User{}}
-
-  """
-  def update_user_status(%User{} = user, attrs) do
-    attrs =
-      Map.put(attrs, :last_seen_at, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second))
-
-    user
-    |> User.status_changeset(attrs)
-    |> Repo.update()
-  end
-
-  @doc """
-  Sets a user as online.
-
-  ## Examples
-
-      iex> set_user_online(user)
-      {:ok, %User{}}
-
-  """
-  def set_user_online(%User{} = user) do
-    update_user_status(user, %{is_online: true, status: "online"})
-  end
-
-  @doc """
-  Sets a user as offline.
-
-  ## Examples
-
-      iex> set_user_offline(user)
-      {:ok, %User{}}
-
-  """
-  def set_user_offline(%User{} = user) do
-    update_user_status(user, %{is_online: false, status: "offline"})
-  end
-
-  @doc """
   Deletes a user.
 
   ## Examples
@@ -194,20 +150,6 @@ defmodule Shadowfax.Accounts do
   """
   def change_user(%User{} = user, attrs \\ %{}) do
     User.profile_changeset(user, attrs)
-  end
-
-  @doc """
-  Returns a list of users that are currently online.
-
-  ## Examples
-
-      iex> list_online_users()
-      [%User{}, ...]
-
-  """
-  def list_online_users do
-    from(u in User, where: u.is_online == true, order_by: u.username)
-    |> Repo.all()
   end
 
   @doc """
@@ -295,7 +237,7 @@ defmodule Shadowfax.Accounts do
   ## Examples
 
       iex> get_user_stats()
-      %{total_users: 150, online_users: 23, new_users_today: 5}
+      %{total_users: 150, new_users_today: 5}
 
   """
   def get_user_stats do
@@ -303,14 +245,12 @@ defmodule Shadowfax.Accounts do
     start_of_day = NaiveDateTime.new!(today, ~T[00:00:00])
 
     total_users = Repo.aggregate(User, :count)
-    online_users = Repo.aggregate(from(u in User, where: u.is_online == true), :count)
 
     new_users_today =
       Repo.aggregate(from(u in User, where: u.inserted_at >= ^start_of_day), :count)
 
     %{
       total_users: total_users,
-      online_users: online_users,
       new_users_today: new_users_today
     }
   end

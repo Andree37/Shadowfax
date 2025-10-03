@@ -310,7 +310,6 @@ defmodule ShadowfaxWeb.ConversationController do
       last_name: user.last_name,
       avatar_url: user.avatar_url,
       status: user.status,
-      is_online: user.is_online,
       display_name: User.display_name(user)
     }
   end

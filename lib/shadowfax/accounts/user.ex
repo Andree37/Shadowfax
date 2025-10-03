@@ -13,9 +13,7 @@ defmodule Shadowfax.Accounts.User do
     field :first_name, :string
     field :last_name, :string
     field :avatar_url, :string
-    field :status, :string, default: "offline"
-    field :is_online, :boolean, default: false
-    field :last_seen_at, :naive_datetime
+    field :status, :string, default: "available"
 
     # Associations
     has_many :created_channels, Channel, foreign_key: :created_by_id
@@ -46,15 +44,6 @@ defmodule Shadowfax.Accounts.User do
   def profile_changeset(user, attrs) do
     user
     |> cast(attrs, [:first_name, :last_name, :avatar_url, :status])
-    |> validate_status()
-  end
-
-  @doc """
-  A user changeset for updating online status.
-  """
-  def status_changeset(user, attrs) do
-    user
-    |> cast(attrs, [:is_online, :last_seen_at, :status])
     |> validate_status()
   end
 
@@ -90,7 +79,7 @@ defmodule Shadowfax.Accounts.User do
   end
 
   defp validate_status(changeset) do
-    valid_statuses = ["online", "away", "busy", "offline"]
+    valid_statuses = ["available", "away", "busy", "dnd"]
     validate_inclusion(changeset, :status, valid_statuses)
   end
 
@@ -160,9 +149,4 @@ defmodule Shadowfax.Accounts.User do
       where: dc.user1_id == ^user_id or dc.user2_id == ^user_id
     )
   end
-
-  @doc """
-  Checks if the user is online.
-  """
-  def online?(%__MODULE__{is_online: is_online}), do: is_online
 end

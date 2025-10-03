@@ -12,6 +12,7 @@ defmodule Shadowfax.Application do
       Shadowfax.Repo,
       {DNSCluster, query: Application.get_env(:shadowfax, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Shadowfax.PubSub},
+      ShadowfaxWeb.Presence,
       # Start a worker by calling: Shadowfax.Worker.start_link(arg)
       # {Shadowfax.Worker, arg},
       # Start to serve requests, typically the last entry

@@ -575,13 +575,277 @@ Repo.aggregate(User, :count)
 # Count all messages
 Repo.aggregate(Message, :count)
 
-# Get all online users
-import Ecto.Query
-Repo.all(from u in User, where: u.is_online == true)
-
 # Get messages from today
 today = Date.utc_today()
 start_of_day = NaiveDateTime.new!(today, ~T[00:00:00])
 
 Repo.all(from m in Message, where: m.inserted_at >= ^start_of_day)
 ```
+
+---
+
+## Testing Presence (Online/Offline Status)
+
+Shadowfax uses **Phoenix.Presence** to track who's online in real-time. Unlike database-based presence, this tracks users who are actively connected to channels via WebSocket.
+
+### How Presence Works
+
+- **Automatic Tracking**: Users are tracked as "online" when they join a channel
+- **Real-time Updates**: Clients receive `presence_state` and `presence_diff` events
+- **No Database**: Presence is tracked in-memory, not in the database
+- **Per-Channel**: Users are tracked separately for each channel they join
+
+### Testing Presence in IEx
+
+#### 1. Start the Application
+
+```bash
+iex -S mix phx.server
+```
+
+#### 2. Check Presence for a Channel
+
+```elixir
+# Check who's online in the general channel (ID: 1)
+ShadowfaxWeb.Presence.list("chat:1")
+# => %{} (empty if no one is connected)
+```
+
+#### 3. Simulate User Connection (Advanced)
+
+```elixir
+# Get a user
+alice = Shadowfax.Accounts.get_user_by_email("alice@example.com")
+
+# Manually track presence (this simulates a connection)
+{:ok, _ref} = ShadowfaxWeb.Presence.track(
+  self(),
+  "chat:1",
+  alice.id,
+  %{
+    user_id: alice.id,
+    username: alice.username,
+    first_name: alice.first_name,
+    last_name: alice.last_name,
+    avatar_url: alice.avatar_url,
+    status: alice.status,
+    online_at: DateTime.utc_now() |> DateTime.to_iso8601()
+  }
+)
+
+# Now check presence again
+ShadowfaxWeb.Presence.list("chat:1")
+# => %{
+#   "1" => %{
+#     metas: [
+#       %{
+#         user_id: 1,
+#         username: "alice",
+#         first_name: "Alice",
+#         ...
+#       }
+#     ]
+#   }
+# }
+```
+
+### Testing Presence via WebSocket (Frontend)
+
+The best way to test presence is through a WebSocket client. Here's a JavaScript example:
+
+```javascript
+// Connect to the socket with authentication
+const socket = new Phoenix.Socket("/socket", {
+  params: { token: "YOUR_AUTH_TOKEN_HERE" }
+})
+
+socket.connect()
+
+// Create a presence object to track state
+const presence = new Phoenix.Presence(socket.channel("chat:1"))
+
+// Join the channel
+const channel = socket.channel("chat:1", {})
+
+// Listen for presence events
+presence.onSync(() => {
+  console.log("Online users:", presence.list())
+})
+
+// Join the channel
+channel.join()
+  .receive("ok", resp => {
+    console.log("Joined successfully", resp)
+  })
+  .receive("error", resp => {
+    console.log("Unable to join", resp)
+  })
+
+// You'll receive presence_state when you join
+channel.on("presence_state", state => {
+  console.log("Initial presence state:", state)
+  presence.syncState(state)
+})
+
+// You'll receive presence_diff when users join/leave
+channel.on("presence_diff", diff => {
+  console.log("Presence changed:", diff)
+  presence.syncDiff(diff)
+})
+```
+
+### Testing Presence with curl + websocat
+
+If you don't have a frontend, you can use `websocat` (WebSocket client):
+
+#### 1. Install websocat
+
+```bash
+# macOS
+brew install websocat
+
+# Linux
+cargo install websocat
+```
+
+#### 2. Get Authentication Token
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "alice@example.com", "password": "Password123!"}' \
+  | jq -r '.data.token')
+
+echo "Token: $TOKEN"
+```
+
+#### 3. Connect to WebSocket
+
+```bash
+websocat "ws://localhost:4000/socket/websocket?token=$TOKEN&vsn=2.0.0"
+```
+
+#### 4. Join a Channel
+
+Once connected, send this JSON message:
+
+```json
+["1","1","chat:1","phx_join",{}]
+```
+
+You should receive a `presence_state` message showing who's online.
+
+### Running Presence Tests
+
+Run the test suite:
+
+```bash
+# Run all tests
+mix test
+
+# Run only presence tests
+mix test test/shadowfax_web/channels/presence_test.exs
+
+# Run with verbose output
+mix test test/shadowfax_web/channels/presence_test.exs --trace
+```
+
+### Understanding Presence Data Structure
+
+When you call `Presence.list("chat:1")`, you get:
+
+```elixir
+%{
+  "1" => %{  # User ID as key
+    metas: [  # Array of presence metadata (usually 1 entry per user)
+      %{
+        user_id: 1,
+        username: "alice",
+        first_name: "Alice",
+        last_name: "Wonder",
+        avatar_url: "https://...",
+        status: "available",  # available, away, busy, dnd
+        online_at: "2025-10-03T15:39:11Z",
+        phx_ref: "F-Q0j8K9H5k="  # Phoenix internal reference
+      }
+    ]
+  },
+  "2" => %{
+    metas: [...]
+  }
+}
+```
+
+### Checking Online Users Programmatically
+
+```elixir
+# Get all online users in a channel
+defmodule PresenceHelper do
+  def online_users(channel_topic) do
+    ShadowfaxWeb.Presence.list(channel_topic)
+    |> Enum.map(fn {_user_id, %{metas: [meta | _]}} ->
+      %{
+        id: meta.user_id,
+        username: meta.username,
+        status: meta.status
+      }
+    end)
+  end
+
+  def count_online(channel_topic) do
+    ShadowfaxWeb.Presence.list(channel_topic)
+    |> map_size()
+  end
+
+  def user_online?(channel_topic, user_id) do
+    ShadowfaxWeb.Presence.list(channel_topic)
+    |> Map.has_key?("#{user_id}")
+  end
+end
+
+# Usage
+PresenceHelper.online_users("chat:1")
+# => [%{id: 1, username: "alice", status: "available"}]
+
+PresenceHelper.count_online("chat:1")
+# => 1
+
+PresenceHelper.user_online?("chat:1", 1)
+# => true
+```
+
+### Important Notes
+
+- **Presence is per-channel**: A user can be online in one channel but not in another
+- **No database queries**: Presence is tracked in-memory for performance
+- **Automatic cleanup**: When a user disconnects, they're automatically removed
+- **Status field**: Users can set their status to "available", "away", "busy", or "dnd"
+- **WebSocket required**: Presence only works for users connected via WebSocket, not REST API
+
+### Debugging Presence Issues
+
+If presence isn't working:
+
+1. **Check if Presence is running**:
+   ```elixir
+   Process.whereis(ShadowfaxWeb.Presence)
+   # Should return a PID like #PID<0.456.0>
+   ```
+
+2. **Check if user is authenticated**:
+   ```elixir
+   # In your channel test
+   socket.assigns.current_user_id
+   # Should return the user ID
+   ```
+
+3. **Check channel subscription**:
+   ```elixir
+   Phoenix.PubSub.subscribers(Shadowfax.PubSub, "chat:1")
+   # Should show connected PIDs
+   ```
+
+4. **Enable debug logging** in `config/dev.exs`:
+   ```elixir
+   config :logger, level: :debug
+   ```

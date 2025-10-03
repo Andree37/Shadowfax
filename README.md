@@ -58,4 +58,21 @@ Elixir chat server.
 ```
 
 # Things to improve
-3. Input sanitization - Message content should be sanitized for XSS
+- Authorization checks** - Verify users can only access their own conversations/channels
+- JWT secret management** - Ensure proper secret key rotation and storage
+- CORS configuration** - Define allowed origins explicitly
+
+- WebSocket/Phoenix Channels** - Currently REST-only; add real-time messaging via Phoenix.Channel
+- Presence tracking** - Show who's online using Phoenix.Presence
+
+- Pagination** - Message history endpoints need cursor-based pagination
+- Caching** - Cache frequently accessed channels/user data
+
+- Logging** - Add structured logging for security events
+- Monitoring** - Expand telemetry for message throughput, auth failures
+- Health checks** - Add `/health` endpoint for deployment monitoring
+
+- File uploads** - Support image/file sharing in messages
+- Read receipts** - Track message read status
+- Notifications** - Email/push notifications for offline users
+- Message reactions** - Emojis/reactions on messages
