@@ -134,12 +134,15 @@ defmodule Shadowfax.Accounts.AuthTokenTest do
     end
 
     test "returns true for token expiring exactly now" do
+      # Truncate to second to avoid microsecond precision issues
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
       token = %AuthToken{
-        expires_at: DateTime.utc_now()
+        expires_at: now
       }
 
-      # Small race condition, but should be expired or very close
-      assert AuthToken.expired?(token) or not AuthToken.expired?(token)
+      # Token expiring exactly now should be considered expired
+      assert AuthToken.expired?(token)
     end
   end
 

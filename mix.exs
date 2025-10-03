@@ -53,7 +53,12 @@ defmodule Shadowfax.MixProject do
       {:bandit, "~> 1.5"},
       {:bcrypt_elixir, "~> 3.0"},
       {:hammer, "~> 6.2"},
-      {:cors_plug, "~> 3.0"}
+      {:cors_plug, "~> 3.0"},
+      {:ex_aws, "~> 2.5"},
+      {:ex_aws_s3, "~> 2.4"},
+      {:ex_aws_sts, "~> 2.3"},
+      {:sweet_xml, "~> 0.7"},
+      {:hackney, "~> 1.18"}
     ]
   end
 

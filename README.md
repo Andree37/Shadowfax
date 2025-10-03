@@ -59,13 +59,12 @@ Elixir chat server.
 
 # Things to improve
 - Pagination** - Message history endpoints need cursor-based pagination
-- Caching** - Cache frequently accessed channels/user data
+- Caching** - Cache frequently accessed channels/user data (not sure how impactful)
 
 - Logging** - Add structured logging for security events
 - Monitoring** - Expand telemetry for message throughput, auth failures
 - Health checks** - Add `/health` endpoint for deployment monitoring
 
-- File uploads** - Support image/file sharing in messages
 - Read receipts** - Track message read status
 - Notifications** - Email/push notifications for offline users
 - Message reactions** - Emojis/reactions on messages

@@ -43,6 +43,13 @@ config :phoenix, :json_library, Jason
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 2, cleanup_interval_ms: 60_000 * 10]}
 
+# Configure AWS/S3 for file uploads
+config :ex_aws,
+  json_codec: Jason,
+  region: System.get_env("AWS_REGION") || "us-east-1"
+
+config :ex_aws, :s3, bucket: System.get_env("S3_BUCKET_NAME")
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

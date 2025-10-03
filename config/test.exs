@@ -42,3 +42,15 @@ config :shadowfax,
 config :shadowfax, :cors,
   origins: ["http://localhost:4002"],
   max_age: 86400
+
+# AWS/S3 configuration for testing
+# Disable STS for tests - we don't want to hit AWS during tests
+config :shadowfax,
+  use_sts: false
+
+config :ex_aws,
+  access_key_id: "test_access_key",
+  secret_access_key: "test_secret_key",
+  region: "us-east-1"
+
+config :ex_aws, :s3, bucket: "test-bucket"

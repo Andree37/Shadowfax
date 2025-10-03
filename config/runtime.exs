@@ -73,6 +73,70 @@ if config_env() == :prod do
     origins: cors_origins,
     max_age: 86400
 
+  # AWS/S3 configuration - ONLY STS AssumeRole is supported
+  # This ensures temporary, auto-rotating credentials for maximum security
+  #
+  # Required environment variables:
+  # - AWS_ROLE_ARN: The ARN of the role to assume for S3 access
+  # - AWS_REGION: AWS region (default: us-east-1)
+  # - S3_BUCKET_NAME: The S3 bucket name
+  #
+  # Base credentials to assume the role:
+  # - Production (EC2/ECS/Lambda): Set USE_IAM_ROLE=true (uses instance profile)
+  # - Development: Provide AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+  #   (these credentials only need sts:AssumeRole permission)
+
+  aws_role_arn =
+    System.get_env("AWS_ROLE_ARN") ||
+      raise """
+      AWS_ROLE_ARN is required for STS-based S3 access.
+      See IMAGE_UPLOAD.md for setup instructions.
+      """
+
+  use_iam_role = System.get_env("USE_IAM_ROLE") in ["true", "1"]
+
+  # Configure STS
+  config :shadowfax,
+    use_sts: true,
+    aws_role_arn: aws_role_arn,
+    aws_session_duration: String.to_integer(System.get_env("AWS_SESSION_DURATION") || "3600")
+
+  # Base credentials to assume the role
+  base_config =
+    if use_iam_role do
+      # Production: Use IAM instance profile (EC2/ECS/Lambda)
+      [region: System.get_env("AWS_REGION") || "us-east-1"]
+    else
+      # Development: Use IAM user with sts:AssumeRole permission only
+      base_access_key =
+        System.get_env("AWS_ACCESS_KEY_ID") ||
+          raise """
+          AWS_ACCESS_KEY_ID is required when USE_IAM_ROLE is not set.
+          This user must have permission to assume the role specified in AWS_ROLE_ARN.
+          """
+
+      base_secret_key =
+        System.get_env("AWS_SECRET_ACCESS_KEY") ||
+          raise """
+          AWS_SECRET_ACCESS_KEY is required when USE_IAM_ROLE is not set.
+          """
+
+      [
+        access_key_id: base_access_key,
+        secret_access_key: base_secret_key,
+        region: System.get_env("AWS_REGION") || "us-east-1"
+      ]
+    end
+
+  config :ex_aws, base_config
+
+  config :ex_aws, :s3,
+    bucket:
+      System.get_env("S3_BUCKET_NAME") ||
+        raise("""
+        S3_BUCKET_NAME environment variable is required.
+        """)
+
   config :shadowfax, ShadowfaxWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [

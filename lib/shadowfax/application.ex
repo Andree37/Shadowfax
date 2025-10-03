@@ -7,17 +7,29 @@ defmodule Shadowfax.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      ShadowfaxWeb.Telemetry,
-      Shadowfax.Repo,
-      {DNSCluster, query: Application.get_env(:shadowfax, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Shadowfax.PubSub},
-      ShadowfaxWeb.Presence,
-      # Start a worker by calling: Shadowfax.Worker.start_link(arg)
-      # {Shadowfax.Worker, arg},
-      # Start to serve requests, typically the last entry
-      ShadowfaxWeb.Endpoint
-    ]
+    # Conditionally start STS credential provider if configured
+    sts_child =
+      if Application.get_env(:shadowfax, :use_sts, false) do
+        [{Shadowfax.AWS.STSCredentials, []}]
+      else
+        []
+      end
+
+    children =
+      [
+        ShadowfaxWeb.Telemetry,
+        Shadowfax.Repo,
+        {DNSCluster, query: Application.get_env(:shadowfax, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: Shadowfax.PubSub},
+        ShadowfaxWeb.Presence
+        # Start a worker by calling: Shadowfax.Worker.start_link(arg)
+        # {Shadowfax.Worker, arg},
+      ] ++
+        sts_child ++
+        [
+          # Start to serve requests, typically the last entry
+          ShadowfaxWeb.Endpoint
+        ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

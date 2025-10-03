@@ -75,6 +75,10 @@ defmodule ShadowfaxWeb.Router do
     put "/messages/:id", MessageController, :update
     delete "/messages/:id", MessageController, :delete
 
+    # Upload routes
+    post "/upload", UploadController, :create
+    post "/upload/presigned", UploadController, :presigned_url
+
     # User routes
     get "/users/search", UserController, :search
     get "/users/stats", UserController, :stats
