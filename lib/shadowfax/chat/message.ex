@@ -151,63 +151,135 @@ defmodule Shadowfax.Chat.Message do
   end
 
   @doc """
-  Returns a query for messages in a channel.
+  Returns a query for messages in a channel with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 50)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
   """
   def channel_messages_query(channel_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
-    offset = Keyword.get(opts, :offset, 0)
+    before_cursor = Keyword.get(opts, :before)
+    after_cursor = Keyword.get(opts, :after)
 
-    from m in __MODULE__,
-      where: m.channel_id == ^channel_id and m.is_deleted == false,
-      order_by: [desc: m.inserted_at],
-      limit: ^limit,
-      offset: ^offset,
-      preload: [:user, :parent_message]
+    query =
+      from m in __MODULE__,
+        where: m.channel_id == ^channel_id and m.is_deleted == false,
+        preload: [:user, :parent_message]
+
+    query = apply_cursor_filters(query, before_cursor, after_cursor)
+
+    from m in query,
+      order_by: [desc: m.id],
+      limit: ^limit
   end
 
   @doc """
-  Returns a query for messages in a direct conversation.
+  Returns a query for messages in a direct conversation with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 50)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
   """
   def direct_messages_query(conversation_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
-    offset = Keyword.get(opts, :offset, 0)
+    before_cursor = Keyword.get(opts, :before)
+    after_cursor = Keyword.get(opts, :after)
 
-    from m in __MODULE__,
-      where: m.direct_conversation_id == ^conversation_id and m.is_deleted == false,
-      order_by: [desc: m.inserted_at],
-      limit: ^limit,
-      offset: ^offset,
-      preload: [:user, :parent_message]
+    query =
+      from m in __MODULE__,
+        where: m.direct_conversation_id == ^conversation_id and m.is_deleted == false,
+        preload: [:user, :parent_message]
+
+    query = apply_cursor_filters(query, before_cursor, after_cursor)
+
+    from m in query,
+      order_by: [desc: m.id],
+      limit: ^limit
+  end
+
+  defp apply_cursor_filters(query, nil, nil), do: query
+
+  defp apply_cursor_filters(query, before_cursor, nil) when not is_nil(before_cursor) do
+    from m in query, where: m.id < ^before_cursor
+  end
+
+  defp apply_cursor_filters(query, nil, after_cursor) when not is_nil(after_cursor) do
+    from m in query, where: m.id > ^after_cursor
+  end
+
+  defp apply_cursor_filters(query, before_cursor, after_cursor) do
+    from m in query,
+      where: m.id < ^before_cursor and m.id > ^after_cursor
   end
 
   @doc """
-  Returns a query for thread messages (replies to a parent message).
+  Returns a query for thread messages (replies to a parent message) with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 50)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
   """
-  def thread_messages_query(parent_message_id) do
-    from m in __MODULE__,
-      where: m.parent_message_id == ^parent_message_id and m.is_deleted == false,
-      order_by: [asc: m.inserted_at],
-      preload: [:user]
+  def thread_messages_query(parent_message_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+    before_cursor = Keyword.get(opts, :before)
+    after_cursor = Keyword.get(opts, :after)
+
+    query =
+      from m in __MODULE__,
+        where: m.parent_message_id == ^parent_message_id and m.is_deleted == false,
+        preload: [:user]
+
+    query = apply_cursor_filters(query, before_cursor, after_cursor)
+
+    from m in query,
+      order_by: [asc: m.id],
+      limit: ^limit
   end
 
   @doc """
-  Returns a query for recent messages by a user.
+  Returns a query for recent messages by a user with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 20)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
   """
   def user_recent_messages_query(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
+    before_cursor = Keyword.get(opts, :before)
+    after_cursor = Keyword.get(opts, :after)
 
-    from m in __MODULE__,
-      where: m.user_id == ^user_id and m.is_deleted == false,
-      order_by: [desc: m.inserted_at],
-      limit: ^limit,
-      preload: [:channel, :direct_conversation]
+    query =
+      from m in __MODULE__,
+        where: m.user_id == ^user_id and m.is_deleted == false,
+        preload: [:channel, :direct_conversation]
+
+    query = apply_cursor_filters(query, before_cursor, after_cursor)
+
+    from m in query,
+      order_by: [desc: m.id],
+      limit: ^limit
   end
 
   @doc """
-  Search messages by content.
+  Search messages by content with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 25)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
+  - `:channel_id` - Filter by channel ID
+  - `:conversation_id` - Filter by conversation ID
+  - `:user_id` - Filter by user ID
   """
   def search_messages_query(search_term, opts \\ []) do
     limit = Keyword.get(opts, :limit, 25)
+    before_cursor = Keyword.get(opts, :before)
+    after_cursor = Keyword.get(opts, :after)
     channel_id = Keyword.get(opts, :channel_id)
     conversation_id = Keyword.get(opts, :conversation_id)
     user_id = Keyword.get(opts, :user_id)
@@ -215,8 +287,6 @@ defmodule Shadowfax.Chat.Message do
     query =
       from m in __MODULE__,
         where: m.is_deleted == false and ilike(m.content, ^"%#{search_term}%"),
-        order_by: [desc: m.inserted_at],
-        limit: ^limit,
         preload: [:user, :channel, :direct_conversation]
 
     query = if channel_id, do: where(query, [m], m.channel_id == ^channel_id), else: query
@@ -228,7 +298,11 @@ defmodule Shadowfax.Chat.Message do
 
     query = if user_id, do: where(query, [m], m.user_id == ^user_id), else: query
 
-    query
+    query = apply_cursor_filters(query, before_cursor, after_cursor)
+
+    from m in query,
+      order_by: [desc: m.id],
+      limit: ^limit
   end
 
   @doc """

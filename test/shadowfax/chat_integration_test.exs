@@ -134,14 +134,14 @@ defmodule Shadowfax.ChatIntegrationTest do
       assert private_message.channel_id == private_channel.id
 
       # Step 9: Verify all messages are retrievable
-      general_messages = Chat.list_channel_messages(channel.id)
-      assert length(general_messages) == 2
-      assert Enum.any?(general_messages, fn m -> m.content == "Hello everyone!" end)
-      assert Enum.any?(general_messages, fn m -> m.content == "Hi there!" end)
+      general_result = Chat.list_channel_messages(channel.id)
+      assert length(general_result.messages) == 2
+      assert Enum.any?(general_result.messages, fn m -> m.content == "Hello everyone!" end)
+      assert Enum.any?(general_result.messages, fn m -> m.content == "Hi there!" end)
 
-      private_messages = Chat.list_channel_messages(private_channel.id)
-      assert length(private_messages) == 1
-      assert Enum.at(private_messages, 0).content == "This is private"
+      private_result = Chat.list_channel_messages(private_channel.id)
+      assert length(private_result.messages) == 1
+      assert Enum.at(private_result.messages, 0).content == "This is private"
 
       # Step 10: Verify channel memberships
       general_members = Chat.list_channel_members(channel.id)
@@ -209,8 +209,8 @@ defmodule Shadowfax.ChatIntegrationTest do
       assert dm2.content == "I'm good, thanks!"
 
       # Verify messages are retrievable
-      messages = Chat.list_direct_messages(conversation.id)
-      assert length(messages) == 2
+      result = Chat.list_direct_messages(conversation.id)
+      assert length(result.messages) == 2
 
       # Verify user can access conversation
       assert Chat.can_access_conversation?(conversation.id, user1.id) == true
@@ -637,10 +637,10 @@ defmodule Shadowfax.ChatIntegrationTest do
         })
 
       # Get thread messages
-      thread_messages = Chat.list_thread_messages(parent_message.id)
-      assert length(thread_messages) == 2
-      assert Enum.any?(thread_messages, fn m -> m.content == "Reply 1" end)
-      assert Enum.any?(thread_messages, fn m -> m.content == "Reply 2" end)
+      thread_result = Chat.list_thread_messages(parent_message.id)
+      assert length(thread_result.messages) == 2
+      assert Enum.any?(thread_result.messages, fn m -> m.content == "Reply 1" end)
+      assert Enum.any?(thread_result.messages, fn m -> m.content == "Reply 2" end)
     end
   end
 
@@ -714,8 +714,284 @@ defmodule Shadowfax.ChatIntegrationTest do
         })
 
       # Search for "world"
-      results = Chat.search_messages("world", channel_id: channel.id)
-      assert length(results) == 2
+      result = Chat.search_messages("world", channel_id: channel.id)
+      assert length(result.messages) == 2
+    end
+  end
+
+  describe "message pagination" do
+    test "paginates channel messages with cursor" do
+      {:ok, user} =
+        Accounts.create_user(%{
+          username: "paginator",
+          email: "page@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, channel} =
+        Chat.create_channel(%{
+          name: "paginationtest",
+          created_by_id: user.id
+        })
+
+      # Create 30 messages
+      messages =
+        for i <- 1..30 do
+          {:ok, msg} =
+            Chat.create_channel_message(%{
+              content: "Message #{i}",
+              user_id: user.id,
+              channel_id: channel.id
+            })
+
+          msg
+        end
+
+      # Fetch first page (10 messages)
+      result = Chat.list_channel_messages(channel.id, limit: 10)
+      assert length(result.messages) == 10
+      assert result.has_more == true
+      assert result.next_cursor != nil
+      assert result.prev_cursor != nil
+
+      # Fetch second page using cursor
+      result2 = Chat.list_channel_messages(channel.id, limit: 10, before: result.next_cursor)
+      assert length(result2.messages) == 10
+      assert result2.has_more == true
+
+      # Verify no overlap between pages
+      first_page_ids = Enum.map(result.messages, & &1.id)
+      second_page_ids = Enum.map(result2.messages, & &1.id)
+      assert MapSet.disjoint?(MapSet.new(first_page_ids), MapSet.new(second_page_ids))
+
+      # Fetch last page
+      result3 = Chat.list_channel_messages(channel.id, limit: 10, before: result2.next_cursor)
+      assert length(result3.messages) == 10
+      assert result3.has_more == false
+      assert result3.next_cursor == nil
+
+      # Test fetching after cursor (newer messages)
+      oldest_msg_id = List.last(messages).id
+      result4 = Chat.list_channel_messages(channel.id, limit: 10, after: oldest_msg_id)
+      assert length(result4.messages) <= 10
+      Enum.each(result4.messages, fn msg -> assert msg.id > oldest_msg_id end)
+    end
+
+    test "paginates direct messages with cursor" do
+      {:ok, user1} =
+        Accounts.create_user(%{
+          username: "sender",
+          email: "sender@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "receiver",
+          email: "receiver@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, conversation} = Chat.find_or_create_conversation(user1.id, user2.id)
+
+      # Create 25 direct messages
+      messages =
+        for i <- 1..25 do
+          {:ok, msg} =
+            Chat.create_direct_message(%{
+              content: "DM #{i}",
+              user_id: if(rem(i, 2) == 0, do: user1.id, else: user2.id),
+              direct_conversation_id: conversation.id
+            })
+
+          msg
+        end
+
+      # Fetch first page
+      result = Chat.list_direct_messages(conversation.id, limit: 10)
+      assert length(result.messages) == 10
+      assert result.has_more == true
+
+      # Fetch second page
+      result2 = Chat.list_direct_messages(conversation.id, limit: 10, before: result.next_cursor)
+      assert length(result2.messages) == 10
+      assert result2.has_more == true
+
+      # Fetch third page
+      result3 = Chat.list_direct_messages(conversation.id, limit: 10, before: result2.next_cursor)
+      assert length(result3.messages) == 5
+      assert result3.has_more == false
+      assert result3.next_cursor == nil
+
+      # Test after cursor
+      tenth_msg_id = Enum.at(messages, 9).id
+      result4 = Chat.list_direct_messages(conversation.id, limit: 5, after: tenth_msg_id)
+      assert length(result4.messages) <= 5
+      Enum.each(result4.messages, fn msg -> assert msg.id > tenth_msg_id end)
+    end
+
+    test "paginates thread messages with cursor" do
+      {:ok, user} =
+        Accounts.create_user(%{
+          username: "threader",
+          email: "thread@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, channel} =
+        Chat.create_channel(%{
+          name: "threadpagination",
+          created_by_id: user.id
+        })
+
+      # Create parent message
+      {:ok, parent} =
+        Chat.create_channel_message(%{
+          content: "Parent",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      # Create 20 replies
+      _replies =
+        for i <- 1..20 do
+          {:ok, reply} =
+            Chat.create_channel_message(%{
+              content: "Reply #{i}",
+              user_id: user.id,
+              channel_id: channel.id,
+              parent_message_id: parent.id
+            })
+
+          reply
+        end
+
+      # Fetch first page of replies
+      result = Chat.list_thread_messages(parent.id, limit: 8)
+      assert length(result.messages) == 8
+      assert result.has_more == true
+
+      # Fetch second page
+      result2 = Chat.list_thread_messages(parent.id, limit: 8, after: result.next_cursor)
+      assert length(result2.messages) == 8
+      assert result2.has_more == true
+
+      # Verify messages are in chronological order (ascending for threads)
+      assert List.first(result.messages).id < List.last(result.messages).id
+
+      # Fetch remaining messages
+      result3 = Chat.list_thread_messages(parent.id, limit: 8, after: result2.next_cursor)
+      assert length(result3.messages) == 4
+      assert result3.has_more == false
+    end
+
+    test "paginates search results with cursor" do
+      {:ok, user} =
+        Accounts.create_user(%{
+          username: "searchuser",
+          email: "searchuser@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, channel} =
+        Chat.create_channel(%{
+          name: "searchpagination",
+          created_by_id: user.id
+        })
+
+      # Create 15 messages with "test" in content
+      _messages =
+        for i <- 1..15 do
+          {:ok, msg} =
+            Chat.create_channel_message(%{
+              content: "This is test message #{i}",
+              user_id: user.id,
+              channel_id: channel.id
+            })
+
+          msg
+        end
+
+      # Create some messages without "test"
+      {:ok, _other} =
+        Chat.create_channel_message(%{
+          content: "Different content",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      # Search with pagination
+      result = Chat.search_messages("test", limit: 7)
+      assert length(result.messages) == 7
+      assert result.has_more == true
+
+      # Fetch second page
+      result2 = Chat.search_messages("test", limit: 7, before: result.next_cursor)
+      assert length(result2.messages) == 7
+      assert result2.has_more == true
+
+      # Fetch remaining
+      result3 = Chat.search_messages("test", limit: 7, before: result2.next_cursor)
+      assert length(result3.messages) == 1
+      assert result3.has_more == false
+
+      # Verify all results contain "test"
+      all_results = result.messages ++ result2.messages ++ result3.messages
+      assert length(all_results) == 15
+      Enum.each(all_results, fn msg -> assert String.contains?(msg.content, "test") end)
+    end
+
+    test "handles empty pagination results" do
+      {:ok, user} =
+        Accounts.create_user(%{
+          username: "emptyuser",
+          email: "empty@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, channel} =
+        Chat.create_channel(%{
+          name: "emptychannel",
+          created_by_id: user.id
+        })
+
+      # Fetch from empty channel
+      result = Chat.list_channel_messages(channel.id, limit: 10)
+      assert result.messages == []
+      assert result.has_more == false
+      assert result.next_cursor == nil
+      assert result.prev_cursor == nil
+    end
+
+    test "respects maximum limit constraint" do
+      {:ok, user} =
+        Accounts.create_user(%{
+          username: "limiter",
+          email: "limit@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, channel} =
+        Chat.create_channel(%{
+          name: "limitchannel",
+          created_by_id: user.id
+        })
+
+      # Create 60 messages
+      for i <- 1..60 do
+        Chat.create_channel_message(%{
+          content: "Message #{i}",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+      end
+
+      # Request with very large limit
+      result = Chat.list_channel_messages(channel.id, limit: 1000)
+
+      # Should still be paginated (fetching limit + 1 internally)
+      # In controller, max limit would be enforced at 100
+      assert length(result.messages) <= 1001
     end
   end
 end

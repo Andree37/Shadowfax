@@ -57,8 +57,8 @@ defmodule ShadowfaxWeb.ConversationChannel do
       })
 
     # Get recent messages
-    messages = Chat.list_direct_messages(conversation_id, limit: 50)
-    push(socket, "messages_loaded", %{messages: serialize_messages(messages)})
+    result = Chat.list_direct_messages(conversation_id, limit: 50)
+    push(socket, "messages_loaded", %{messages: serialize_messages(result.messages)})
 
     # Send current presence list to the joining user
     push(socket, "presence_state", Presence.list(socket))

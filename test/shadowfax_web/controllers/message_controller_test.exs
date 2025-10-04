@@ -413,4 +413,293 @@ defmodule ShadowfaxWeb.MessageControllerTest do
       assert error_msg == Errors.missing_authorization()
     end
   end
+
+  describe "GET /api/messages/search (pagination)" do
+    setup %{user1: user1, channel: channel, token1: token1, conn: conn} do
+      # Create 30 messages for pagination testing
+      messages =
+        for i <- 1..30 do
+          {:ok, msg} =
+            Chat.create_channel_message(%{
+              content: "Search message #{i}",
+              user_id: user1.id,
+              channel_id: channel.id
+            })
+
+          msg
+        end
+
+      {:ok, messages: messages, conn: conn, token1: token1, channel: channel}
+    end
+
+    test "returns first page of search results", %{conn: conn, token1: token1} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/search", %{q: "Search message", limit: "10"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "messages" => messages,
+                 "query" => "Search message",
+                 "pagination" => %{
+                   "has_more" => has_more,
+                   "next_cursor" => next_cursor,
+                   "prev_cursor" => prev_cursor
+                 }
+               }
+             } = json_response(conn, 200)
+
+      assert length(messages) == 10
+      assert has_more == true
+      assert next_cursor != nil
+      assert prev_cursor != nil
+    end
+
+    test "fetches messages before cursor", %{conn: conn, token1: token1, messages: messages} do
+      # Get the 20th message ID as cursor
+      cursor = Enum.at(messages, 19).id
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/search", %{q: "Search message", before: "#{cursor}", limit: "10"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "messages" => result_messages,
+                 "pagination" => %{
+                   "has_more" => has_more
+                 }
+               }
+             } = json_response(conn, 200)
+
+      assert length(result_messages) == 10
+      # All returned message IDs should be less than cursor
+      Enum.each(result_messages, fn msg -> assert msg["id"] < cursor end)
+      assert has_more == true
+    end
+
+    test "fetches messages after cursor", %{conn: conn, token1: token1, messages: messages} do
+      # Get the 10th message ID as cursor
+      cursor = Enum.at(messages, 9).id
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/search", %{q: "Search message", after: "#{cursor}", limit: "10"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "messages" => result_messages,
+                 "pagination" => %{
+                   "has_more" => _has_more
+                 }
+               }
+             } = json_response(conn, 200)
+
+      assert length(result_messages) <= 10
+      # All returned message IDs should be greater than cursor
+      Enum.each(result_messages, fn msg -> assert msg["id"] > cursor end)
+    end
+
+    test "indicates no more results when at end", %{conn: conn, token1: token1} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/search", %{q: "Search message", limit: "50"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "messages" => messages,
+                 "pagination" => %{
+                   "has_more" => has_more,
+                   "next_cursor" => next_cursor
+                 }
+               }
+             } = json_response(conn, 200)
+
+      assert length(messages) == 30
+      assert has_more == false
+      assert next_cursor == nil
+    end
+
+    test "filters search by channel_id", %{
+      conn: conn,
+      token1: token1,
+      user1: user1,
+      channel: channel
+    } do
+      # Create another channel with messages
+      {:ok, channel2} =
+        Chat.create_channel(%{
+          name: "channel2",
+          description: "Second channel",
+          created_by_id: user1.id,
+          is_private: false
+        })
+
+      {:ok, _msg} =
+        Chat.create_channel_message(%{
+          content: "Search message in channel 2",
+          user_id: user1.id,
+          channel_id: channel2.id
+        })
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/search", %{
+          q: "Search message",
+          channel_id: "#{channel.id}",
+          limit: "50"
+        })
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "messages" => messages
+               }
+             } = json_response(conn, 200)
+
+      # Should only return messages from channel, not channel2
+      Enum.each(messages, fn msg -> assert msg["channel_id"] == channel.id end)
+    end
+  end
+
+  describe "GET /api/messages/:id/thread (pagination)" do
+    setup %{user1: user1, channel: channel, token1: token1, conn: conn} do
+      # Create parent message
+      {:ok, parent} =
+        Chat.create_channel_message(%{
+          content: "Parent message",
+          user_id: user1.id,
+          channel_id: channel.id
+        })
+
+      # Create 25 thread replies
+      replies =
+        for i <- 1..25 do
+          {:ok, reply} =
+            Chat.create_channel_message(%{
+              content: "Reply #{i}",
+              user_id: user1.id,
+              channel_id: channel.id,
+              parent_message_id: parent.id
+            })
+
+          reply
+        end
+
+      {:ok, parent: parent, replies: replies, conn: conn, token1: token1}
+    end
+
+    test "returns first page of thread messages", %{conn: conn, token1: token1, parent: parent} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/#{parent.id}/thread", %{limit: "10"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "parent_message" => parent_msg,
+                 "replies" => replies,
+                 "pagination" => %{
+                   "has_more" => has_more,
+                   "next_cursor" => next_cursor,
+                   "prev_cursor" => prev_cursor
+                 }
+               }
+             } = json_response(conn, 200)
+
+      assert parent_msg["id"] == parent.id
+      assert length(replies) == 10
+      assert has_more == true
+      assert next_cursor != nil
+      assert prev_cursor != nil
+    end
+
+    test "fetches thread messages with before cursor", %{
+      conn: conn,
+      token1: token1,
+      parent: parent,
+      replies: replies
+    } do
+      # Get the 15th reply as cursor
+      cursor = Enum.at(replies, 14).id
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/#{parent.id}/thread", %{before: "#{cursor}", limit: "10"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "replies" => result_replies,
+                 "pagination" => %{
+                   "has_more" => has_more
+                 }
+               }
+             } = json_response(conn, 200)
+
+      assert length(result_replies) == 10
+      # All returned reply IDs should be less than cursor
+      Enum.each(result_replies, fn reply -> assert reply["id"] < cursor end)
+      assert has_more == true
+    end
+
+    test "fetches thread messages with after cursor", %{
+      conn: conn,
+      token1: token1,
+      parent: parent,
+      replies: replies
+    } do
+      # Get the 5th reply as cursor
+      cursor = Enum.at(replies, 4).id
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/#{parent.id}/thread", %{after: "#{cursor}", limit: "10"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "replies" => result_replies
+               }
+             } = json_response(conn, 200)
+
+      assert length(result_replies) == 10
+      # All returned reply IDs should be greater than cursor
+      Enum.each(result_replies, fn reply -> assert reply["id"] > cursor end)
+    end
+
+    test "indicates no more results when at end", %{conn: conn, token1: token1, parent: parent} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/#{parent.id}/thread", %{limit: "50"})
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "replies" => replies,
+                 "pagination" => %{
+                   "has_more" => has_more,
+                   "next_cursor" => next_cursor
+                 }
+               }
+             } = json_response(conn, 200)
+
+      assert length(replies) == 25
+      assert has_more == false
+      assert next_cursor == nil
+    end
+  end
 end

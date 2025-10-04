@@ -318,23 +318,31 @@ defmodule ShadowfaxWeb.ChannelController do
   end
 
   @doc """
-  Get channel messages
+  Get channel messages with cursor-based pagination
+
+  Query parameters:
+  - limit: Maximum number of messages (default: 50, max: 100)
+  - before: Fetch messages before this cursor (message ID)
+  - after: Fetch messages after this cursor (message ID)
   """
   def messages(conn, %{"id" => id} = params) do
     with {:ok, user} <- get_current_user(conn),
          channel <- Chat.get_channel!(id),
          true <- can_access_channel?(channel, user.id) do
-      limit = min(String.to_integer(params["limit"] || "50"), 100)
-      offset = String.to_integer(params["offset"] || "0")
-
-      messages = Chat.list_channel_messages(channel.id, limit: limit, offset: offset)
+      opts = build_pagination_opts(params)
+      result = Chat.list_channel_messages(channel.id, opts)
 
       conn
       |> json(%{
         success: true,
         data: %{
-          messages: Enum.map(messages, &serialize_message/1),
-          channel: serialize_channel(channel)
+          messages: Enum.map(result.messages, &serialize_message/1),
+          channel: serialize_channel(channel),
+          pagination: %{
+            has_more: result.has_more,
+            next_cursor: result.next_cursor,
+            prev_cursor: result.prev_cursor
+          }
         }
       })
     else
@@ -362,6 +370,35 @@ defmodule ShadowfaxWeb.ChannelController do
         success: false,
         error: Errors.invalid_pagination()
       })
+  end
+
+  defp build_pagination_opts(params) do
+    opts = []
+
+    opts =
+      if limit = params["limit"] do
+        Keyword.put(opts, :limit, min(String.to_integer(limit), 100))
+      else
+        Keyword.put(opts, :limit, 50)
+      end
+
+    opts =
+      if before = params["before"] do
+        Keyword.put(opts, :before, String.to_integer(before))
+      else
+        opts
+      end
+
+    opts =
+      if after_cursor = params["after"] do
+        Keyword.put(opts, :after, String.to_integer(after_cursor))
+      else
+        opts
+      end
+
+    opts
+  rescue
+    ArgumentError -> raise ArgumentError
   end
 
   # Private functions

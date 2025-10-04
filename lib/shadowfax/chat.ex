@@ -486,61 +486,159 @@ defmodule Shadowfax.Chat do
   end
 
   @doc """
-  Lists messages in a channel.
+  Lists messages in a channel with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 50)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
+
+  ## Returns
+  A map with:
+  - `:messages` - List of messages
+  - `:has_more` - Boolean indicating if more messages exist
+  - `:next_cursor` - Cursor for next page (oldest message ID)
+  - `:prev_cursor` - Cursor for previous page (newest message ID)
 
   ## Examples
 
-      iex> list_channel_messages(channel_id)
-      [%Message{}, ...]
+      iex> list_channel_messages(channel_id, limit: 20, before: 100)
+      %{messages: [...], has_more: true, next_cursor: 81, prev_cursor: 100}
 
   """
   def list_channel_messages(channel_id, opts \\ []) do
-    Message.channel_messages_query(channel_id, opts)
-    |> Repo.all()
-    |> Enum.reverse()
+    limit = Keyword.get(opts, :limit, 50)
+
+    # Fetch one extra to check if there are more messages
+    messages =
+      Message.channel_messages_query(channel_id, Keyword.put(opts, :limit, limit + 1))
+      |> Repo.all()
+
+    build_paginated_response(messages, limit)
   end
 
   @doc """
-  Lists messages in a direct conversation.
+  Lists messages in a direct conversation with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 50)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
+
+  ## Returns
+  A map with:
+  - `:messages` - List of messages
+  - `:has_more` - Boolean indicating if more messages exist
+  - `:next_cursor` - Cursor for next page (oldest message ID)
+  - `:prev_cursor` - Cursor for previous page (newest message ID)
 
   ## Examples
 
-      iex> list_direct_messages(conversation_id)
-      [%Message{}, ...]
+      iex> list_direct_messages(conversation_id, limit: 20, before: 100)
+      %{messages: [...], has_more: true, next_cursor: 81, prev_cursor: 100}
 
   """
   def list_direct_messages(conversation_id, opts \\ []) do
-    Message.direct_messages_query(conversation_id, opts)
-    |> Repo.all()
-    |> Enum.reverse()
+    limit = Keyword.get(opts, :limit, 50)
+
+    # Fetch one extra to check if there are more messages
+    messages =
+      Message.direct_messages_query(conversation_id, Keyword.put(opts, :limit, limit + 1))
+      |> Repo.all()
+
+    build_paginated_response(messages, limit)
+  end
+
+  defp build_paginated_response(messages, limit) do
+    has_more = length(messages) > limit
+    messages = if has_more, do: Enum.take(messages, limit), else: messages
+    messages_reversed = Enum.reverse(messages)
+
+    %{
+      messages: messages_reversed,
+      has_more: has_more,
+      next_cursor: if(has_more && length(messages) > 0, do: List.last(messages).id, else: nil),
+      prev_cursor: if(length(messages) > 0, do: List.first(messages).id, else: nil)
+    }
   end
 
   @doc """
-  Lists thread messages (replies to a parent message).
+  Lists thread messages (replies to a parent message) with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 50)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
+
+  ## Returns
+  A map with:
+  - `:messages` - List of messages in chronological order
+  - `:has_more` - Boolean indicating if more messages exist
+  - `:next_cursor` - Cursor for next page
+  - `:prev_cursor` - Cursor for previous page
 
   ## Examples
 
-      iex> list_thread_messages(parent_message_id)
-      [%Message{}, ...]
+      iex> list_thread_messages(parent_message_id, limit: 20, before: 100)
+      %{messages: [...], has_more: true, next_cursor: 120, prev_cursor: 100}
 
   """
-  def list_thread_messages(parent_message_id) do
-    Message.thread_messages_query(parent_message_id)
-    |> Repo.all()
+  def list_thread_messages(parent_message_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+
+    # Fetch one extra to check if there are more messages
+    messages =
+      Message.thread_messages_query(parent_message_id, Keyword.put(opts, :limit, limit + 1))
+      |> Repo.all()
+
+    build_thread_paginated_response(messages, limit)
+  end
+
+  defp build_thread_paginated_response(messages, limit) do
+    has_more = length(messages) > limit
+    messages = if has_more, do: Enum.take(messages, limit), else: messages
+
+    %{
+      messages: messages,
+      has_more: has_more,
+      next_cursor: if(has_more && length(messages) > 0, do: List.last(messages).id, else: nil),
+      prev_cursor: if(length(messages) > 0, do: List.first(messages).id, else: nil)
+    }
   end
 
   @doc """
-  Searches messages.
+  Searches messages with cursor-based pagination.
+
+  ## Options
+  - `:limit` - Maximum number of messages to return (default: 25)
+  - `:before` - Cursor (message ID) to fetch messages before
+  - `:after` - Cursor (message ID) to fetch messages after
+  - `:channel_id` - Filter by channel ID
+  - `:conversation_id` - Filter by conversation ID
+  - `:user_id` - Filter by user ID
+
+  ## Returns
+  A map with:
+  - `:messages` - List of messages
+  - `:has_more` - Boolean indicating if more messages exist
+  - `:next_cursor` - Cursor for next page (oldest message ID)
+  - `:prev_cursor` - Cursor for previous page (newest message ID)
 
   ## Examples
 
-      iex> search_messages("hello", channel_id: 1)
-      [%Message{}, ...]
+      iex> search_messages("hello", channel_id: 1, limit: 20)
+      %{messages: [...], has_more: false, next_cursor: nil, prev_cursor: 55}
 
   """
   def search_messages(query, opts \\ []) do
-    Message.search_messages_query(query, opts)
-    |> Repo.all()
+    limit = Keyword.get(opts, :limit, 25)
+
+    # Fetch one extra to check if there are more messages
+    messages =
+      Message.search_messages_query(query, Keyword.put(opts, :limit, limit + 1))
+      |> Repo.all()
+
+    build_paginated_response(messages, limit)
   end
 
   @doc """

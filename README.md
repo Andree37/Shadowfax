@@ -58,7 +58,6 @@ Elixir chat server.
 ```
 
 # Things to improve
-- Pagination** - Message history endpoints need cursor-based pagination
 - Caching** - Cache frequently accessed channels/user data (not sure how impactful)
 
 - Logging** - Add structured logging for security events

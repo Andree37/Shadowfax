@@ -257,16 +257,24 @@ defmodule ShadowfaxWeb.MessageController do
   end
 
   @doc """
-  Search messages
+  Search messages with cursor-based pagination
+
+  Query parameters:
+  - q: Search query (required)
+  - limit: Maximum number of messages (default: 25, max: 100)
+  - before: Fetch messages before this cursor (message ID)
+  - after: Fetch messages after this cursor (message ID)
+  - channel_id: Filter by channel ID
+  - conversation_id: Filter by conversation ID
   """
   def search(conn, %{"q" => query} = params) do
     {:ok, user} = get_current_user(conn)
     opts = build_search_opts(params, user.id)
-    messages = Chat.search_messages(query, opts)
+    result = Chat.search_messages(query, opts)
 
     # Filter messages based on access
     accessible_messages =
-      Enum.filter(messages, fn message ->
+      Enum.filter(result.messages, fn message ->
         can_access_message?(message, user.id)
       end)
 
@@ -275,7 +283,12 @@ defmodule ShadowfaxWeb.MessageController do
       success: true,
       data: %{
         messages: Enum.map(accessible_messages, &serialize_message/1),
-        query: query
+        query: query,
+        pagination: %{
+          has_more: result.has_more,
+          next_cursor: result.next_cursor,
+          prev_cursor: result.prev_cursor
+        }
       }
     })
   end
@@ -290,23 +303,33 @@ defmodule ShadowfaxWeb.MessageController do
   end
 
   @doc """
-  Get thread messages (replies to a parent message)
+  Get thread messages (replies to a parent message) with cursor-based pagination
+
+  Query parameters:
+  - limit: Maximum number of messages (default: 50, max: 100)
+  - before: Fetch messages before this cursor (message ID)
+  - after: Fetch messages after this cursor (message ID)
   """
-  def thread(conn, %{"id" => parent_message_id}) do
+  def thread(conn, %{"id" => parent_message_id} = params) do
     with {:ok, user} <- get_current_user(conn),
          parent_message <- Chat.get_message!(parent_message_id),
          parent_message <-
-           Shadowfax.Repo.preload(parent_message, [:channel, :direct_conversation]),
+           Shadowfax.Repo.preload(parent_message, [:user, :channel, :direct_conversation]),
          true <- can_access_message?(parent_message, user.id) do
-      replies = Chat.list_thread_messages(parent_message.id)
+      opts = build_thread_opts(params)
+      result = Chat.list_thread_messages(parent_message.id, opts)
 
       conn
       |> json(%{
         success: true,
         data: %{
           parent_message: serialize_message(parent_message),
-          replies: Enum.map(replies, &serialize_message/1),
-          reply_count: length(replies)
+          replies: Enum.map(result.messages, &serialize_message/1),
+          pagination: %{
+            has_more: result.has_more,
+            next_cursor: result.next_cursor,
+            prev_cursor: result.prev_cursor
+          }
         }
       })
     else
@@ -397,6 +420,49 @@ defmodule ShadowfaxWeb.MessageController do
     opts =
       if limit = params["limit"] do
         Keyword.put(opts, :limit, min(String.to_integer(limit), 100))
+      else
+        Keyword.put(opts, :limit, 25)
+      end
+
+    opts =
+      if before = params["before"] do
+        Keyword.put(opts, :before, String.to_integer(before))
+      else
+        opts
+      end
+
+    opts =
+      if after_cursor = params["after"] do
+        Keyword.put(opts, :after, String.to_integer(after_cursor))
+      else
+        opts
+      end
+
+    opts
+  rescue
+    ArgumentError -> []
+  end
+
+  defp build_thread_opts(params) do
+    opts = []
+
+    opts =
+      if limit = params["limit"] do
+        Keyword.put(opts, :limit, min(String.to_integer(limit), 100))
+      else
+        Keyword.put(opts, :limit, 50)
+      end
+
+    opts =
+      if before = params["before"] do
+        Keyword.put(opts, :before, String.to_integer(before))
+      else
+        opts
+      end
+
+    opts =
+      if after_cursor = params["after"] do
+        Keyword.put(opts, :after, String.to_integer(after_cursor))
       else
         opts
       end

@@ -457,8 +457,8 @@ defmodule Shadowfax.ChatTest do
           channel_id: channel.id
         })
 
-      messages = Chat.list_channel_messages(channel.id)
-      assert length(messages) == 2
+      result = Chat.list_channel_messages(channel.id)
+      assert length(result.messages) == 2
     end
 
     test "limits number of messages returned", %{user: user} do
@@ -472,8 +472,8 @@ defmodule Shadowfax.ChatTest do
         })
       end
 
-      messages = Chat.list_channel_messages(channel.id, limit: 10)
-      assert length(messages) == 10
+      result = Chat.list_channel_messages(channel.id, limit: 10)
+      assert length(result.messages) == 10
     end
   end
 
@@ -511,8 +511,8 @@ defmodule Shadowfax.ChatTest do
           channel_id: channel.id
         })
 
-      thread = Chat.list_thread_messages(parent.id)
-      assert length(thread) == 2
+      result = Chat.list_thread_messages(parent.id)
+      assert length(result.messages) == 2
     end
   end
 
@@ -541,8 +541,8 @@ defmodule Shadowfax.ChatTest do
           channel_id: channel.id
         })
 
-      results = Chat.search_messages("world", channel_id: channel.id)
-      assert length(results) == 2
+      result = Chat.search_messages("world", channel_id: channel.id)
+      assert length(result.messages) == 2
     end
   end
 

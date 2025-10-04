@@ -113,23 +113,31 @@ defmodule ShadowfaxWeb.ConversationController do
   end
 
   @doc """
-  Get messages in a conversation
+  Get messages in a conversation with cursor-based pagination
+
+  Query parameters:
+  - limit: Maximum number of messages (default: 50, max: 100)
+  - before: Fetch messages before this cursor (message ID)
+  - after: Fetch messages after this cursor (message ID)
   """
   def messages(conn, %{"id" => id} = params) do
     with {:ok, user} <- get_current_user(conn),
          conversation <- Chat.get_direct_conversation!(id),
          true <- can_access_conversation?(conversation, user.id) do
-      limit = min(String.to_integer(params["limit"] || "50"), 100)
-      offset = String.to_integer(params["offset"] || "0")
-
-      messages = Chat.list_direct_messages(conversation.id, limit: limit, offset: offset)
+      opts = build_pagination_opts(params)
+      result = Chat.list_direct_messages(conversation.id, opts)
 
       conn
       |> json(%{
         success: true,
         data: %{
-          messages: Enum.map(messages, &serialize_message/1),
-          conversation: serialize_conversation(conversation, user.id)
+          messages: Enum.map(result.messages, &serialize_message/1),
+          conversation: serialize_conversation(conversation, user.id),
+          pagination: %{
+            has_more: result.has_more,
+            next_cursor: result.next_cursor,
+            prev_cursor: result.prev_cursor
+          }
         }
       })
     else
@@ -157,6 +165,35 @@ defmodule ShadowfaxWeb.ConversationController do
         success: false,
         error: Errors.invalid_pagination()
       })
+  end
+
+  defp build_pagination_opts(params) do
+    opts = []
+
+    opts =
+      if limit = params["limit"] do
+        Keyword.put(opts, :limit, min(String.to_integer(limit), 100))
+      else
+        Keyword.put(opts, :limit, 50)
+      end
+
+    opts =
+      if before = params["before"] do
+        Keyword.put(opts, :before, String.to_integer(before))
+      else
+        opts
+      end
+
+    opts =
+      if after_cursor = params["after"] do
+        Keyword.put(opts, :after, String.to_integer(after_cursor))
+      else
+        opts
+      end
+
+    opts
+  rescue
+    ArgumentError -> raise ArgumentError
   end
 
   @doc """
