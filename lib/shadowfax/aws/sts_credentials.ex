@@ -17,6 +17,16 @@ defmodule Shadowfax.AWS.STSCredentials do
   # 1 hour
   @default_duration_seconds 3600
 
+  @type t :: %__MODULE__{
+          access_key_id: String.t() | nil,
+          secret_access_key: String.t() | nil,
+          session_token: String.t() | nil,
+          expiration: DateTime.t() | nil,
+          role_arn: String.t(),
+          session_name: String.t(),
+          duration_seconds: non_neg_integer()
+        }
+
   defstruct [
     :access_key_id,
     :secret_access_key,
@@ -124,6 +134,7 @@ defmodule Shadowfax.AWS.STSCredentials do
 
   # Private Functions
 
+  @spec assume_role(t()) :: {:ok, t()} | {:error, term()}
   defp assume_role(state) do
     Logger.info("Assuming role: #{state.role_arn}")
 
@@ -132,7 +143,7 @@ defmodule Shadowfax.AWS.STSCredentials do
       ExAws.STS.assume_role(
         state.role_arn,
         state.session_name,
-        duration_seconds: state.duration_seconds
+        duration: state.duration_seconds
       )
       |> ExAws.request()
 
@@ -155,6 +166,7 @@ defmodule Shadowfax.AWS.STSCredentials do
     end
   end
 
+  @spec schedule_refresh(t()) :: reference()
   defp schedule_refresh(state) do
     now = DateTime.utc_now() |> DateTime.to_unix()
     expiration = DateTime.to_unix(state.expiration)
@@ -165,6 +177,7 @@ defmodule Shadowfax.AWS.STSCredentials do
     Process.send_after(self(), :refresh, refresh_in)
   end
 
+  @spec parse_expiration(String.t()) :: DateTime.t()
   defp parse_expiration(expiration_string) do
     case DateTime.from_iso8601(expiration_string) do
       {:ok, datetime, _offset} -> datetime
