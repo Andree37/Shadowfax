@@ -555,6 +555,352 @@ defmodule Shadowfax.ChatTest do
     end
   end
 
+  describe "mark_channel_message_as_read/3" do
+    test "creates read receipt when none exists", %{user: user} do
+      {:ok, channel} = Chat.create_channel(%{name: "readchannel", created_by_id: user.id})
+
+      {:ok, message} =
+        Chat.create_channel_message(%{
+          content: "Test message",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      assert {:ok, receipt} = Chat.mark_channel_message_as_read(channel.id, user.id, message.id)
+      assert receipt.user_id == user.id
+      assert receipt.channel_id == channel.id
+      assert receipt.last_read_message_id == message.id
+    end
+
+    test "updates existing read receipt with newer message", %{user: user} do
+      {:ok, channel} = Chat.create_channel(%{name: "updatechannel", created_by_id: user.id})
+
+      {:ok, message1} =
+        Chat.create_channel_message(%{
+          content: "Message 1",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      {:ok, message2} =
+        Chat.create_channel_message(%{
+          content: "Message 2",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      # Mark first message as read
+      {:ok, _receipt} = Chat.mark_channel_message_as_read(channel.id, user.id, message1.id)
+
+      # Mark second message as read
+      {:ok, updated_receipt} =
+        Chat.mark_channel_message_as_read(channel.id, user.id, message2.id)
+
+      assert updated_receipt.last_read_message_id == message2.id
+    end
+
+    test "does not update read receipt with older message", %{user: user} do
+      {:ok, channel} = Chat.create_channel(%{name: "olderchannel", created_by_id: user.id})
+
+      {:ok, message1} =
+        Chat.create_channel_message(%{
+          content: "Message 1",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      {:ok, message2} =
+        Chat.create_channel_message(%{
+          content: "Message 2",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      # Mark second message as read
+      {:ok, _receipt} = Chat.mark_channel_message_as_read(channel.id, user.id, message2.id)
+
+      # Try to mark first message as read (older)
+      {:ok, receipt} = Chat.mark_channel_message_as_read(channel.id, user.id, message1.id)
+
+      # Should still be at message2
+      assert receipt.last_read_message_id == message2.id
+    end
+  end
+
+  describe "mark_conversation_message_as_read/3" do
+    test "creates read receipt when none exists", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "conversationuser",
+          email: "conv@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, conversation} = Chat.find_or_create_conversation(user.id, user2.id)
+
+      {:ok, message} =
+        Chat.create_direct_message(%{
+          content: "DM",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      assert {:ok, receipt} =
+               Chat.mark_conversation_message_as_read(conversation.id, user.id, message.id)
+
+      assert receipt.user_id == user.id
+      assert receipt.direct_conversation_id == conversation.id
+      assert receipt.last_read_message_id == message.id
+    end
+
+    test "updates existing read receipt with newer message", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "convuser2",
+          email: "conv2@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, conversation} = Chat.find_or_create_conversation(user.id, user2.id)
+
+      {:ok, message1} =
+        Chat.create_direct_message(%{
+          content: "DM 1",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      {:ok, message2} =
+        Chat.create_direct_message(%{
+          content: "DM 2",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      # Mark first message as read
+      {:ok, _receipt} =
+        Chat.mark_conversation_message_as_read(conversation.id, user.id, message1.id)
+
+      # Mark second message as read
+      {:ok, updated_receipt} =
+        Chat.mark_conversation_message_as_read(conversation.id, user.id, message2.id)
+
+      assert updated_receipt.last_read_message_id == message2.id
+    end
+  end
+
+  describe "get_channel_read_receipt/2" do
+    test "returns read receipt when it exists", %{user: user} do
+      {:ok, channel} = Chat.create_channel(%{name: "receiptchannel", created_by_id: user.id})
+
+      {:ok, message} =
+        Chat.create_channel_message(%{
+          content: "Message",
+          user_id: user.id,
+          channel_id: channel.id
+        })
+
+      {:ok, _receipt} = Chat.mark_channel_message_as_read(channel.id, user.id, message.id)
+
+      receipt = Chat.get_channel_read_receipt(user.id, channel.id)
+      assert receipt != nil
+      assert receipt.last_read_message_id == message.id
+    end
+
+    test "returns nil when no receipt exists", %{user: user} do
+      {:ok, channel} = Chat.create_channel(%{name: "noreceiptchannel", created_by_id: user.id})
+
+      receipt = Chat.get_channel_read_receipt(user.id, channel.id)
+      assert receipt == nil
+    end
+  end
+
+  describe "get_conversation_read_receipt/2" do
+    test "returns read receipt when it exists", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "receiptuser",
+          email: "receipt@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, conversation} = Chat.find_or_create_conversation(user.id, user2.id)
+
+      {:ok, message} =
+        Chat.create_direct_message(%{
+          content: "DM",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      {:ok, _receipt} =
+        Chat.mark_conversation_message_as_read(conversation.id, user.id, message.id)
+
+      receipt = Chat.get_conversation_read_receipt(user.id, conversation.id)
+      assert receipt != nil
+      assert receipt.last_read_message_id == message.id
+    end
+
+    test "returns nil when no receipt exists", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "noreceiptuser",
+          email: "noreceipt@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, conversation} = Chat.find_or_create_conversation(user.id, user2.id)
+
+      receipt = Chat.get_conversation_read_receipt(user.id, conversation.id)
+      assert receipt == nil
+    end
+  end
+
+  describe "get_channel_unread_count/2" do
+    test "returns 0 when no unread messages", %{user: user} do
+      {:ok, channel} = Chat.create_channel(%{name: "nounread", created_by_id: user.id})
+
+      count = Chat.get_channel_unread_count(user.id, channel.id)
+      assert count == 0
+    end
+
+    test "returns correct unread count", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "sender",
+          email: "sender@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, channel} = Chat.create_channel(%{name: "unreadchannel", created_by_id: user.id})
+      {:ok, _membership} = Chat.add_user_to_channel(channel.id, user2.id)
+
+      # User2 sends 3 messages
+      {:ok, msg1} =
+        Chat.create_channel_message(%{
+          content: "Msg 1",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      {:ok, _msg2} =
+        Chat.create_channel_message(%{
+          content: "Msg 2",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      {:ok, _msg3} =
+        Chat.create_channel_message(%{
+          content: "Msg 3",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      # Should have 3 unread
+      count = Chat.get_channel_unread_count(user.id, channel.id)
+      assert count == 3
+
+      # Mark first message as read
+      {:ok, _receipt} = Chat.mark_channel_message_as_read(channel.id, user.id, msg1.id)
+
+      # Should have 2 unread
+      count = Chat.get_channel_unread_count(user.id, channel.id)
+      assert count == 2
+    end
+  end
+
+  describe "get_conversation_unread_count/2" do
+    test "returns 0 when no unread messages", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "convnounread",
+          email: "convnounread@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, conversation} = Chat.find_or_create_conversation(user.id, user2.id)
+
+      count = Chat.get_conversation_unread_count(user.id, conversation.id)
+      assert count == 0
+    end
+
+    test "returns correct unread count", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "convunread",
+          email: "convunread@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, conversation} = Chat.find_or_create_conversation(user.id, user2.id)
+
+      # User2 sends 2 messages
+      {:ok, msg1} =
+        Chat.create_direct_message(%{
+          content: "DM 1",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      {:ok, _msg2} =
+        Chat.create_direct_message(%{
+          content: "DM 2",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      # Should have 2 unread
+      count = Chat.get_conversation_unread_count(user.id, conversation.id)
+      assert count == 2
+
+      # Mark first message as read
+      {:ok, _receipt} =
+        Chat.mark_conversation_message_as_read(conversation.id, user.id, msg1.id)
+
+      # Should have 1 unread
+      count = Chat.get_conversation_unread_count(user.id, conversation.id)
+      assert count == 1
+    end
+  end
+
+  describe "get_unread_counts/1" do
+    test "returns unread counts for all channels and conversations", %{user: user} do
+      {:ok, user2} =
+        Accounts.create_user(%{
+          username: "allunread",
+          email: "allunread@example.com",
+          password: "Pass1234!"
+        })
+
+      {:ok, channel} = Chat.create_channel(%{name: "allunreadchannel", created_by_id: user.id})
+      {:ok, _membership} = Chat.add_user_to_channel(channel.id, user2.id)
+      {:ok, conversation} = Chat.find_or_create_conversation(user.id, user2.id)
+
+      # User2 sends messages
+      {:ok, _} =
+        Chat.create_channel_message(%{
+          content: "Channel msg",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      {:ok, _} =
+        Chat.create_direct_message(%{
+          content: "DM",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      counts = Chat.get_unread_counts(user.id)
+      assert is_map(counts)
+      assert Map.has_key?(counts, :channels)
+      assert Map.has_key?(counts, :conversations)
+      assert is_list(counts.channels)
+      assert is_list(counts.conversations)
+    end
+  end
+
   describe "can_access_channel?/2" do
     test "allows access to public channel", %{user: user} do
       {:ok, user2} =

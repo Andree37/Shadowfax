@@ -63,6 +63,15 @@ defmodule ShadowfaxWeb.ConversationChannel do
     # Send current presence list to the joining user
     push(socket, "presence_state", Presence.list(socket))
 
+    # Send user's last read message info
+    case Chat.get_conversation_read_receipt(user_id, conversation_id) do
+      nil ->
+        :ok
+
+      receipt ->
+        push(socket, "last_read", %{message_id: receipt.last_read_message_id})
+    end
+
     {:noreply, socket}
   end
 
@@ -155,11 +164,24 @@ defmodule ShadowfaxWeb.ConversationChannel do
   end
 
   @impl true
-  def handle_in("mark_as_read", _payload, socket) do
-    # For direct conversations, we don't have a membership table
-    # We could create a separate read receipts table or handle this differently
-    # For now, we'll just acknowledge the request
-    {:reply, {:ok, %{}}, socket}
+  def handle_in("mark_as_read", %{"message_id" => message_id}, socket) do
+    conversation_id = socket.assigns.conversation_id
+    user_id = socket.assigns.current_user_id
+
+    case Chat.mark_conversation_message_as_read(conversation_id, user_id, message_id) do
+      {:ok, _receipt} ->
+        # Broadcast read receipt to the other user
+        broadcast_from!(socket, "read_receipt", %{
+          user_id: user_id,
+          message_id: message_id,
+          timestamp: DateTime.utc_now()
+        })
+
+        {:reply, {:ok, %{}}, socket}
+
+      {:error, _reason} ->
+        {:reply, {:error, Errors.ws_error_response(Errors.ws_mark_read_failed())}, socket}
+    end
   end
 
   @impl true

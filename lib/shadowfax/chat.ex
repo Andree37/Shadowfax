@@ -6,7 +6,7 @@ defmodule Shadowfax.Chat do
   import Ecto.Query, warn: false
   alias Shadowfax.Repo
 
-  alias Shadowfax.Chat.{Channel, ChannelMembership, DirectConversation, Message}
+  alias Shadowfax.Chat.{Channel, ChannelMembership, DirectConversation, Message, ReadReceipt}
 
   ## Channels
 
@@ -415,6 +415,8 @@ defmodule Shadowfax.Chat do
       {:ok, message} ->
         # Update conversation's last message time
         DirectConversation.update_last_message_time(message.direct_conversation_id)
+        # Preload user for broadcasting
+        message = Repo.preload(message, :user)
         # Broadcast the message
         broadcast_direct_message(message, :new_message)
         {:ok, message}
@@ -731,31 +733,32 @@ defmodule Shadowfax.Chat do
   Gets unread message counts for a user across all channels and conversations.
   """
   def get_unread_counts(user_id) do
-    # Get unread counts for channels
+    # Get unread counts for channels using read receipts
     channel_counts =
       from(cm in ChannelMembership,
         join: c in Channel,
         on: cm.channel_id == c.id,
+        left_join: rr in ReadReceipt,
+        on: rr.user_id == ^user_id and rr.channel_id == c.id,
         left_join: m in Message,
         on:
-          m.channel_id == c.id and
-            (is_nil(cm.last_read_at) or m.inserted_at > cm.last_read_at) and
-            m.user_id != ^user_id and
-            m.is_deleted == false,
+          m.channel_id == c.id and m.user_id != ^user_id and m.is_deleted == false and
+            (is_nil(rr.last_read_message_id) or m.id > rr.last_read_message_id),
         where: cm.user_id == ^user_id and c.is_archived == false,
         group_by: [c.id, c.name],
         select: %{channel_id: c.id, channel_name: c.name, unread_count: count(m.id)}
       )
       |> Repo.all()
 
-    # Get unread counts for conversations
+    # Get unread counts for conversations using read receipts
     conversation_counts =
       from(dc in DirectConversation,
+        left_join: rr in ReadReceipt,
+        on: rr.user_id == ^user_id and rr.direct_conversation_id == dc.id,
         left_join: m in Message,
         on:
-          m.direct_conversation_id == dc.id and
-            m.user_id != ^user_id and
-            m.is_deleted == false,
+          m.direct_conversation_id == dc.id and m.user_id != ^user_id and m.is_deleted == false and
+            (is_nil(rr.last_read_message_id) or m.id > rr.last_read_message_id),
         where:
           (dc.user1_id == ^user_id and dc.is_archived_by_user1 == false) or
             (dc.user2_id == ^user_id and dc.is_archived_by_user2 == false),
@@ -768,5 +771,181 @@ defmodule Shadowfax.Chat do
       channels: channel_counts,
       conversations: conversation_counts
     }
+  end
+
+  ## Read Receipts
+
+  @doc """
+  Marks a message as read in a channel for a user.
+  Creates or updates the read receipt to track the latest message read.
+
+  ## Examples
+
+      iex> mark_channel_message_as_read(channel_id, user_id, message_id)
+      {:ok, %ReadReceipt{}}
+
+  """
+  def mark_channel_message_as_read(channel_id, user_id, message_id) do
+    # Verify the message exists and belongs to this channel
+    case Repo.get(Message, message_id) do
+      nil ->
+        {:error, :message_not_found}
+
+      message ->
+        if message.channel_id != channel_id do
+          {:error, :message_not_in_channel}
+        else
+          attrs = %{
+            user_id: user_id,
+            channel_id: channel_id,
+            last_read_message_id: message_id
+          }
+
+          case get_channel_read_receipt(user_id, channel_id) do
+            nil ->
+              %ReadReceipt{}
+              |> ReadReceipt.channel_changeset(attrs)
+              |> Repo.insert()
+
+            receipt ->
+              # Only update if the new message is newer
+              if message_id > receipt.last_read_message_id do
+                receipt
+                |> ReadReceipt.channel_changeset(attrs)
+                |> Repo.update()
+              else
+                {:ok, receipt}
+              end
+          end
+        end
+    end
+  end
+
+  @doc """
+  Marks a message as read in a conversation for a user.
+  Creates or updates the read receipt to track the latest message read.
+
+  ## Examples
+
+      iex> mark_conversation_message_as_read(conversation_id, user_id, message_id)
+      {:ok, %ReadReceipt{}}
+
+  """
+  def mark_conversation_message_as_read(conversation_id, user_id, message_id) do
+    # Verify the message exists and belongs to this conversation
+    case Repo.get(Message, message_id) do
+      nil ->
+        {:error, :message_not_found}
+
+      message ->
+        if message.direct_conversation_id != conversation_id do
+          {:error, :message_not_in_conversation}
+        else
+          attrs = %{
+            user_id: user_id,
+            direct_conversation_id: conversation_id,
+            last_read_message_id: message_id
+          }
+
+          case get_conversation_read_receipt(user_id, conversation_id) do
+            nil ->
+              %ReadReceipt{}
+              |> ReadReceipt.conversation_changeset(attrs)
+              |> Repo.insert()
+
+            receipt ->
+              # Only update if the new message is newer
+              if message_id > receipt.last_read_message_id do
+                receipt
+                |> ReadReceipt.conversation_changeset(attrs)
+                |> Repo.update()
+              else
+                {:ok, receipt}
+              end
+          end
+        end
+    end
+  end
+
+  @doc """
+  Gets a user's read receipt for a channel.
+
+  ## Examples
+
+      iex> get_channel_read_receipt(user_id, channel_id)
+      %ReadReceipt{}
+
+  """
+  def get_channel_read_receipt(user_id, channel_id) do
+    ReadReceipt.channel_read_receipt_query(user_id, channel_id)
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets a user's read receipt for a conversation.
+
+  ## Examples
+
+      iex> get_conversation_read_receipt(user_id, conversation_id)
+      %ReadReceipt{}
+
+  """
+  def get_conversation_read_receipt(user_id, conversation_id) do
+    ReadReceipt.conversation_read_receipt_query(user_id, conversation_id)
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets all users who have read a specific message in a channel.
+
+  ## Examples
+
+      iex> get_message_readers(message_id, channel_id)
+      [%ReadReceipt{}, ...]
+
+  """
+  def get_message_readers(message_id, channel_id) do
+    ReadReceipt.message_read_receipts_query(message_id, channel_id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets unread message count for a user in a channel.
+
+  ## Examples
+
+      iex> get_channel_unread_count(user_id, channel_id)
+      5
+
+  """
+  def get_channel_unread_count(user_id, channel_id) do
+    ReadReceipt.unread_count_for_channel(user_id, channel_id)
+  end
+
+  @doc """
+  Gets unread message count for a user in a conversation.
+
+  ## Examples
+
+      iex> get_conversation_unread_count(user_id, conversation_id)
+      3
+
+  """
+  def get_conversation_unread_count(user_id, conversation_id) do
+    ReadReceipt.unread_count_for_conversation(user_id, conversation_id)
+  end
+
+  @doc """
+  Gets all read receipts for a user (useful for initial sync).
+
+  ## Examples
+
+      iex> list_user_read_receipts(user_id)
+      [%ReadReceipt{}, ...]
+
+  """
+  def list_user_read_receipts(user_id) do
+    ReadReceipt.user_read_receipts_query(user_id)
+    |> Repo.all()
   end
 end

@@ -571,6 +571,275 @@ defmodule ShadowfaxWeb.MessageControllerTest do
     end
   end
 
+  describe "POST /api/channels/:channel_id/read/:message_id" do
+    test "marks channel message as read", %{
+      conn: conn,
+      user1: user1,
+      user2: user2,
+      channel: channel,
+      token1: token1
+    } do
+      # User2 sends a message
+      {:ok, message} =
+        Chat.create_channel_message(%{
+          content: "Test message",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> post(~p"/api/channels/#{channel.id}/read/#{message.id}")
+
+      assert %{"success" => true} = json_response(conn, 200)
+
+      # Verify read receipt was created
+      receipt = Chat.get_channel_read_receipt(user1.id, channel.id)
+      assert receipt != nil
+      assert receipt.last_read_message_id == message.id
+    end
+
+    test "requires authentication", %{conn: conn, channel: channel} do
+      conn = post(conn, ~p"/api/channels/#{channel.id}/read/123")
+      assert json_response(conn, 401)
+    end
+
+    test "returns 404 for invalid channel", %{conn: conn, token1: token1} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> post(~p"/api/channels/99999/read/123")
+
+      assert json_response(conn, 404)
+    end
+
+    test "returns 404 for invalid message", %{
+      conn: conn,
+      channel: channel,
+      token1: token1
+    } do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> post(~p"/api/channels/#{channel.id}/read/99999")
+
+      assert json_response(conn, 404)
+    end
+
+    test "returns 403 for private channel non-member", %{
+      conn: conn,
+      user1: user1,
+      user2: _user2,
+      token2: token2
+    } do
+      # Create a private channel with only user1
+      {:ok, private_channel} =
+        Chat.create_channel(%{
+          name: "private-test",
+          created_by_id: user1.id,
+          is_private: true
+        })
+
+      {:ok, message} =
+        Chat.create_channel_message(%{
+          content: "Private message",
+          user_id: user1.id,
+          channel_id: private_channel.id
+        })
+
+      # User2 tries to mark as read
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token2}")
+        |> post(~p"/api/channels/#{private_channel.id}/read/#{message.id}")
+
+      assert json_response(conn, 403)
+    end
+  end
+
+  describe "POST /api/conversations/:conversation_id/read/:message_id" do
+    test "marks conversation message as read", %{
+      conn: conn,
+      user1: user1,
+      user2: user2,
+      conversation: conversation,
+      token1: token1
+    } do
+      # User2 sends a message
+      {:ok, message} =
+        Chat.create_direct_message(%{
+          content: "DM test",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> post(~p"/api/conversations/#{conversation.id}/read/#{message.id}")
+
+      assert %{"success" => true} = json_response(conn, 200)
+
+      # Verify read receipt was created
+      receipt = Chat.get_conversation_read_receipt(user1.id, conversation.id)
+      assert receipt != nil
+      assert receipt.last_read_message_id == message.id
+    end
+
+    test "requires authentication", %{conn: conn, conversation: conversation} do
+      conn = post(conn, ~p"/api/conversations/#{conversation.id}/read/123")
+      assert json_response(conn, 401)
+    end
+
+    test "returns 404 for invalid conversation", %{conn: conn, token1: token1} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> post(~p"/api/conversations/99999/read/123")
+
+      assert json_response(conn, 404)
+    end
+
+    test "returns 403 for conversation user is not part of", %{
+      conn: conn,
+      token1: token1
+    } do
+      # Create another user
+      {:ok, user3} =
+        Accounts.create_user(%{
+          username: "user3",
+          email: "user3@example.com",
+          password: "Password123!"
+        })
+
+      {:ok, user4} =
+        Accounts.create_user(%{
+          username: "user4",
+          email: "user4@example.com",
+          password: "Password123!"
+        })
+
+      # Create conversation between user3 and user4
+      {:ok, other_conversation} = Chat.find_or_create_conversation(user3.id, user4.id)
+
+      {:ok, message} =
+        Chat.create_direct_message(%{
+          content: "Private DM",
+          user_id: user3.id,
+          direct_conversation_id: other_conversation.id
+        })
+
+      # User1 tries to mark as read (not part of conversation)
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> post(~p"/api/conversations/#{other_conversation.id}/read/#{message.id}")
+
+      assert json_response(conn, 403)
+    end
+  end
+
+  describe "GET /api/messages/unread-counts" do
+    test "returns unread counts for all channels and conversations", %{
+      conn: conn,
+      user1: _user1,
+      user2: user2,
+      channel: channel,
+      conversation: conversation,
+      token1: token1
+    } do
+      # User2 sends messages
+      {:ok, _} =
+        Chat.create_channel_message(%{
+          content: "Channel message 1",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      {:ok, _} =
+        Chat.create_channel_message(%{
+          content: "Channel message 2",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      {:ok, _} =
+        Chat.create_direct_message(%{
+          content: "DM 1",
+          user_id: user2.id,
+          direct_conversation_id: conversation.id
+        })
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/unread-counts")
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "channels" => channels,
+                 "conversations" => conversations
+               }
+             } = json_response(conn, 200)
+
+      assert is_list(channels)
+      assert is_list(conversations)
+
+      # Find the test channel
+      channel_count = Enum.find(channels, fn ch -> ch["channel_id"] == channel.id end)
+      assert channel_count != nil
+      assert channel_count["unread_count"] == 2
+
+      # Find the test conversation
+      conv_count = Enum.find(conversations, fn c -> c["conversation_id"] == conversation.id end)
+      assert conv_count != nil
+      assert conv_count["unread_count"] == 1
+    end
+
+    test "requires authentication", %{conn: conn} do
+      conn = get(conn, ~p"/api/messages/unread-counts")
+      assert json_response(conn, 401)
+    end
+
+    test "returns 0 unread when all messages are read", %{
+      conn: conn,
+      user1: user1,
+      user2: user2,
+      channel: channel,
+      token1: token1
+    } do
+      # User2 sends a message
+      {:ok, message} =
+        Chat.create_channel_message(%{
+          content: "Read message",
+          user_id: user2.id,
+          channel_id: channel.id
+        })
+
+      # User1 marks it as read
+      Chat.mark_channel_message_as_read(channel.id, user1.id, message.id)
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token1}")
+        |> get(~p"/api/messages/unread-counts")
+
+      assert %{
+               "success" => true,
+               "data" => %{
+                 "channels" => channels
+               }
+             } = json_response(conn, 200)
+
+      # Find the test channel
+      channel_count = Enum.find(channels, fn ch -> ch["channel_id"] == channel.id end)
+      assert channel_count != nil
+      assert channel_count["unread_count"] == 0
+    end
+  end
+
   describe "GET /api/messages/:id/thread (pagination)" do
     setup %{user1: user1, channel: channel, token1: token1, conn: conn} do
       # Create parent message

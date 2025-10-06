@@ -70,10 +70,18 @@ defmodule ShadowfaxWeb.Router do
 
     # Message routes
     get "/messages/search", MessageController, :search
+    get "/messages/unread-counts", MessageController, :unread_counts
     get "/messages/:id", MessageController, :show
     get "/messages/:id/thread", MessageController, :thread
     put "/messages/:id", MessageController, :update
     delete "/messages/:id", MessageController, :delete
+
+    # Read receipt routes
+    post "/channels/:channel_id/read/:message_id", MessageController, :mark_channel_read
+
+    post "/conversations/:conversation_id/read/:message_id",
+         MessageController,
+         :mark_conversation_read
 
     # Upload routes
     post "/upload", UploadController, :create

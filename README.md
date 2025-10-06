@@ -64,6 +64,5 @@ Elixir chat server.
 - Monitoring** - Expand telemetry for message throughput, auth failures
 - Health checks** - Add `/health` endpoint for deployment monitoring
 
-- Read receipts** - Track message read status
 - Notifications** - Email/push notifications for offline users
 - Message reactions** - Emojis/reactions on messages

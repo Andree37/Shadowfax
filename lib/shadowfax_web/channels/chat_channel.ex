@@ -63,6 +63,15 @@ defmodule ShadowfaxWeb.ChatChannel do
     # Send current presence list to the joining user
     push(socket, "presence_state", Presence.list(socket))
 
+    # Send user's last read message info
+    case Chat.get_channel_read_receipt(user_id, channel_id) do
+      nil ->
+        :ok
+
+      receipt ->
+        push(socket, "last_read", %{message_id: receipt.last_read_message_id})
+    end
+
     {:noreply, socket}
   end
 
@@ -158,12 +167,19 @@ defmodule ShadowfaxWeb.ChatChannel do
   end
 
   @impl true
-  def handle_in("mark_as_read", _payload, socket) do
+  def handle_in("mark_as_read", %{"message_id" => message_id}, socket) do
     channel_id = socket.assigns.channel_id
     user_id = socket.assigns.current_user_id
 
-    case Chat.mark_channel_as_read(channel_id, user_id) do
-      {:ok, _membership} ->
+    case Chat.mark_channel_message_as_read(channel_id, user_id, message_id) do
+      {:ok, _receipt} ->
+        # Broadcast read receipt to other channel members
+        broadcast_from!(socket, "read_receipt", %{
+          user_id: user_id,
+          message_id: message_id,
+          timestamp: DateTime.utc_now()
+        })
+
         {:reply, {:ok, %{}}, socket}
 
       {:error, _reason} ->

@@ -303,6 +303,136 @@ defmodule ShadowfaxWeb.MessageController do
   end
 
   @doc """
+  Mark a message as read in a channel
+  """
+  def mark_channel_read(conn, %{"channel_id" => channel_id, "message_id" => message_id}) do
+    with {:ok, user} <- get_current_user(conn),
+         channel <- Chat.get_channel!(channel_id),
+         true <- can_access_channel?(channel, user.id),
+         message <- Chat.get_message!(message_id),
+         true <- message.channel_id == String.to_integer(channel_id),
+         {:ok, _receipt} <-
+           Chat.mark_channel_message_as_read(
+             String.to_integer(channel_id),
+             user.id,
+             String.to_integer(message_id)
+           ) do
+      conn
+      |> json(%{
+        success: true,
+        message: "Message marked as read"
+      })
+    else
+      false ->
+        conn
+        |> put_status(:forbidden)
+        |> json(%{
+          success: false,
+          error: Errors.access_denied()
+        })
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{
+          success: false,
+          errors: serialize_errors(changeset)
+        })
+    end
+  rescue
+    Ecto.NoResultsError ->
+      conn
+      |> put_status(:not_found)
+      |> json(%{
+        success: false,
+        error: Errors.not_found()
+      })
+  end
+
+  def mark_channel_read(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{
+      success: false,
+      error: Errors.invalid_request("channel_id and message_id")
+    })
+  end
+
+  @doc """
+  Mark a message as read in a conversation
+  """
+  def mark_conversation_read(conn, %{
+        "conversation_id" => conversation_id,
+        "message_id" => message_id
+      }) do
+    with {:ok, user} <- get_current_user(conn),
+         conversation <- Chat.get_direct_conversation!(conversation_id),
+         true <- can_access_conversation?(conversation, user.id),
+         message <- Chat.get_message!(message_id),
+         true <- message.direct_conversation_id == String.to_integer(conversation_id),
+         {:ok, _receipt} <-
+           Chat.mark_conversation_message_as_read(
+             String.to_integer(conversation_id),
+             user.id,
+             String.to_integer(message_id)
+           ) do
+      conn
+      |> json(%{
+        success: true,
+        message: "Message marked as read"
+      })
+    else
+      false ->
+        conn
+        |> put_status(:forbidden)
+        |> json(%{
+          success: false,
+          error: Errors.access_denied()
+        })
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{
+          success: false,
+          errors: serialize_errors(changeset)
+        })
+    end
+  rescue
+    Ecto.NoResultsError ->
+      conn
+      |> put_status(:not_found)
+      |> json(%{
+        success: false,
+        error: Errors.not_found()
+      })
+  end
+
+  def mark_conversation_read(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{
+      success: false,
+      error: Errors.invalid_request("conversation_id and message_id")
+    })
+  end
+
+  @doc """
+  Get unread counts for all channels and conversations for the current user
+  """
+  def unread_counts(conn, _params) do
+    with {:ok, user} <- get_current_user(conn) do
+      counts = Chat.get_unread_counts(user.id)
+
+      conn
+      |> json(%{
+        success: true,
+        data: counts
+      })
+    end
+  end
+
+  @doc """
   Get thread messages (replies to a parent message) with cursor-based pagination
 
   Query parameters:
